@@ -617,6 +617,15 @@ int op_map(FP12 *r, EC_POINT *g, FP2 *x, FP2 *y) {
 	if (!op_exp(r, r)) {
 		goto err;
 	}
+
+	if (!BN_from_montgomery(&x->f[0], &x->f[0], ctx.mn, ctx.bn) ||
+		!BN_from_montgomery(&x->f[1], &x->f[1], ctx.mn, ctx.bn)) {
+		goto err;
+	}
+	if (!BN_from_montgomery(&y->f[0], &y->f[0], ctx.mn, ctx.bn) ||
+		!BN_from_montgomery(&y->f[1], &y->f[1], ctx.mn, ctx.bn)) {
+		goto err;
+	}
 	
 err:
 	BN_free(u);
