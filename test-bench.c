@@ -609,19 +609,25 @@ static int inversion12(void) {
 
 static int pairing(void) {
 	int code = 0;
-	FP12 e;
+	FP12 e, f;
 
 	FP12_init(&e);
+	FP12_init(&f);
 
-	TEST_ONCE("pairing is correct") {
+	TEST_ONCE("pairing is linear in the first argument") {
+		/* Notice that pairing returns field elements in Montgomery rep. */
 		op_map(&e, ctx.g1, ctx.g2x, ctx.g2y);
-		FP12_print(&e);
+		EC_POINT_dbl(ctx.ec, ctx.g1, ctx.g1, ctx.bn);
+		FP12_sqr(&e, &e);
+		op_map(&f, ctx.g1, ctx.g2x, ctx.g2y);
+		TEST_ASSERT(FP12_cmp(&e, &f) == 0, end);
 	} TEST_END;
 
 	code = 1;
 
   end:
   	FP12_free(&e);
+  	FP12_free(&f);
 	return code;
 }
 
