@@ -888,6 +888,8 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 
+	printf("\n** Pairing\n\n");
+
 	if (pairing() == 0) {
 		return 0;
 	}
