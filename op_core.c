@@ -41,7 +41,8 @@ int op_init(void) {
 	EC_POINT *g1 = NULL;
 
 	group.bn = BN_CTX_new();
-	if (group.bn == NULL) {
+	group.mont = BN_MONT_CTX_new();
+	if (group.bn == NULL || group.mont == NULL) {
 		op_free();
 		return 0;
 	}
@@ -52,7 +53,7 @@ int op_init(void) {
 
 	a = BN_CTX_get(group.bn);
 	b = BN_CTX_get(group.bn);
-	one = BN_CTX_get(group.bn);
+	one = BN_new();
 	if (one == NULL) {
 		op_free();
 		return 0;
@@ -67,6 +68,9 @@ int op_init(void) {
 		return 0;
 	}
 	group.field = &group.ec->field;
+	if (!BN_MONT_CTX_set(group.mont, group.field, group.bn)) {
+		return 0;
+	}
 
 	g1 = EC_POINT_new(group.ec);
 	if (g1 == NULL) {
@@ -90,6 +94,10 @@ int op_init(void) {
 	if (!EC_GROUP_set_generator(group.ec, g1, r, one)) {
 		op_free();
 		return 0;
+	}
+
+    if (!BN_to_montgomery(one, BN_value_one(), group.mont, group.bn)) {
+        return 0;
 	}
 
 	group.g2x = (FP2 *)calloc(1, sizeof(FP2));
@@ -122,6 +130,9 @@ int op_init(void) {
 		return 0;
 	}
 	BN_copy(&group.g2y->f[1], x);
+
+	group.one = one;
+	one = NULL;
 
 	BN_free(a);
 	BN_free(b);

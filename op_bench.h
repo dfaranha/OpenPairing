@@ -38,7 +38,7 @@
 /**
  * Number of times to run benchmarks.
  */
-#define BENCH 		100
+#define BENCH 		10
 
 /*============================================================================*/
 /* Macro definitions                                                          */

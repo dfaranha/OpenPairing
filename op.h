@@ -46,8 +46,10 @@ typedef struct _FP12 {
 /** Stores information regarding the groups involved in pairing computation. */
 struct pairing_group_st {
 	EC_GROUP *ec;
-	BIGNUM *field;
+	BN_MONT_CTX *mont;
 	BN_CTX *bn;
+	BIGNUM *field;
+	BIGNUM *one;
 	FP2 *g2x;
 	FP2 *g2y;
 };

@@ -161,10 +161,10 @@ int FP2_mul_frb(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, int i, BN_CTX 
 		if (BN_hex2bn(&frb, FRB2) != (sizeof(FRB2) - 1)) {
 			return 0;
 		}
-		if (!group->ec->meth->field_mul(group->ec, &r->f[0], &a->f[0], frb, ctx)) {
+		if (!BN_mod_mul_montgomery(&r->f[0], &a->f[0], frb, group->mont, ctx)) {
 			goto err;
 		}
-		if (!group->ec->meth->field_mul(group->ec, &r->f[1], &a->f[1], frb, ctx)) {
+		if (!BN_mod_mul_montgomery(&r->f[1], &a->f[1], frb, group->mont, ctx)) {
 			goto err;
 		}
 		if (!FP2_mul_art(group, r, r, ctx)) {
@@ -176,10 +176,10 @@ int FP2_mul_frb(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, int i, BN_CTX 
 		if (BN_hex2bn(&frb, FRB3) != (sizeof(FRB3) - 1)) {
 			return 0;
 		}
-		if (!group->ec->meth->field_mul(group->ec, &r->f[0], &a->f[0], frb, ctx)) {
+		if (!BN_mod_mul_montgomery(&r->f[0], &a->f[0], frb, group->mont, ctx)) {
 			goto err;
 		}
-		if (!group->ec->meth->field_mul(group->ec, &r->f[1], &a->f[1], frb, ctx)) {
+		if (!BN_mod_mul_montgomery(&r->f[1], &a->f[1], frb, group->mont, ctx)) {
 			goto err;
 		}
 		if (!FP2_mul_nor(group, r, r, ctx)) {
@@ -191,10 +191,10 @@ int FP2_mul_frb(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, int i, BN_CTX 
 		if (BN_hex2bn(&frb, FRB4) != (sizeof(FRB4) - 1)) {
 			return 0;
 		}
-		if (!group->ec->meth->field_mul(group->ec, &r->f[0], &a->f[0], frb, ctx)) {
+		if (!BN_mod_mul_montgomery(&r->f[0], &a->f[0], frb, group->mont, ctx)) {
 			goto err;
 		}
-		if (!group->ec->meth->field_mul(group->ec, &r->f[1], &a->f[1], frb, ctx)) {
+		if (!BN_mod_mul_montgomery(&r->f[1], &a->f[1], frb, group->mont, ctx)) {
 			goto err;
 		}
 	}
@@ -257,15 +257,15 @@ int FP2_mul(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, const FP2 *b, BN_C
 	}
 
 	/* t3 = (a_0 + a_1) * (b_0 + b_1). */
-	if (!group->ec->meth->field_mul(group->ec, t3, t2, t1, ctx)) {
+	if (!BN_mod_mul_montgomery(t3, t2, t1, group->mont, ctx)) {
 		goto err;
 	}
 
 	/* t0 = a_0 * b_0, t4 = a_1 * b_1. */
-	if (!group->ec->meth->field_mul(group->ec, t0, &a->f[0], &b->f[0], ctx)) {
+	if (!BN_mod_mul_montgomery(t0, &a->f[0], &b->f[0], group->mont, ctx)) {
 		goto err;
 	}
-	if (!group->ec->meth->field_mul(group->ec, t4, &a->f[1], &b->f[1], ctx)) {
+	if (!BN_mod_mul_montgomery(t4, &a->f[1], &b->f[1], group->mont, ctx)) {
 		goto err;
 	}
 
@@ -398,11 +398,11 @@ int FP2_sqr(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, BN_CTX *ctx) {
 	}
 
 	/* c_1 = 2 * a_0 * a_1. */
-	if (!group->ec->meth->field_mul(group->ec, &r->f[1], t2, &a->f[1], ctx)) {
+	if (!BN_mod_mul_montgomery(&r->f[1], t2, &a->f[1], group->mont, ctx)) {
 		goto err;
 	}
 	/* c_0 = a_0^2 + a_1^2 * u^2. */
-	if (!group->ec->meth->field_mul(group->ec, &r->f[0], t0, t1, ctx)) {
+	if (!BN_mod_mul_montgomery(&r->f[0], t0, t1, group->mont, ctx)) {
 		goto err;
 	}
 
@@ -435,10 +435,10 @@ int FP2_inv(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, BN_CTX *ctx) {
 	}
 
 	/* t0 = a_0^2, t1 = a_1^2. */
-	if (!group->ec->meth->field_mul(group->ec, t0, &a->f[0], &a->f[0], ctx)) {
+	if (!BN_mod_mul_montgomery(t0, &a->f[0], &a->f[0], group->mont, ctx)) {
 		goto err;
 	}
-	if (!group->ec->meth->field_mul(group->ec, t1, &a->f[1], &a->f[1], ctx)) {
+	if (!BN_mod_mul_montgomery(t1, &a->f[1], &a->f[1], group->mont, ctx)) {
 		goto err;
 	}
 
@@ -447,7 +447,7 @@ int FP2_inv(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, BN_CTX *ctx) {
 		goto err;
 	}
 
-	if (!group->ec->meth->field_decode(group->ec, t0, t0, ctx)) {
+	if (!BN_from_montgomery(t0, t0, group->mont, ctx)) {
 		goto err;
 	}
 
@@ -455,17 +455,17 @@ int FP2_inv(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, BN_CTX *ctx) {
 		goto err;
 	}
 
-	if (!group->ec->meth->field_encode(group->ec, t1, t1, ctx)) {
+	if (!BN_to_montgomery(t1, t1, group->mont, ctx)) {
 		goto err;
 	}
 
 	/* c_0 = a_0/(a_0^2 + a_1^2). */
-	if (!group->ec->meth->field_mul(group->ec, &r->f[0], &a->f[0], t1, ctx)) {
+	if (!BN_mod_mul_montgomery(&r->f[0], &a->f[0], t1, group->mont, ctx)) {
 		goto err;
 	}
 
 	/* c_1 = a_1/(a_0^2 + a_1^2). */
-	if (!group->ec->meth->field_mul(group->ec, &r->f[1], &a->f[1], t1, ctx)) {
+	if (!BN_mod_mul_montgomery(&r->f[1], &a->f[1], t1, group->mont, ctx)) {
 		goto err;
 	}
 
@@ -620,10 +620,10 @@ int FP2_rdc(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, BN_CTX *ctx) {
 	int ret = 0;
 
 	/* c_0 = t1 mod p. */
-	if (!group->ec->meth->field_decode(group->ec, &r->f[0], &a->f[0], ctx)) {
+	if (!BN_from_montgomery(&r->f[0], &a->f[0], group->mont, ctx)) {
 		goto err;
 	}
-	if (!group->ec->meth->field_decode(group->ec, &r->f[1], &a->f[1], ctx)) {
+	if (!BN_from_montgomery(&r->f[1], &a->f[1], group->mont, ctx)) {
 		goto err;
 	}
 

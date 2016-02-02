@@ -563,10 +563,6 @@ int FP12_back(const PAIRING_GROUP *group, FP12 *r, FP12 *s, const FP12 *a, const
 		goto err;
 	}
 
-	if (!group->ec->meth->field_set_to_one(group->ec, one, ctx)) {
-		goto err;
-	}
-
 	FP2_init(&t0[0]);
 	FP2_init(&t0[1]);
 	FP2_init(&t1[0]);
@@ -653,7 +649,7 @@ int FP12_back(const PAIRING_GROUP *group, FP12 *r, FP12 *s, const FP12 *a, const
 		if (!FP2_mul_nor(group, &t[i].f[0].f[0], &t2[i], ctx)) {
 			goto err;
 		}
-		if (!BN_add(&t[i].f[0].f[0].f[0], &t[i].f[0].f[0].f[0], one)) {
+		if (!BN_add(&t[i].f[0].f[0].f[0], &t[i].f[0].f[0].f[0], group->one)) {
 			goto err;
 		}
 		FP2_copy(&t[i].f[0].f[1], &u[i].f[0].f[1]);
