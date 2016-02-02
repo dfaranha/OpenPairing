@@ -34,50 +34,47 @@
 #define Y0	"021897A06BAF93439A90E096698C822329BD0AE6BDBE09BD19F0E07891CD2B9A"
 #define Y1	"0EBB2B0E7C8B15268F6D4456F5F38D37B09006FFD739C9578A2D1AEC6B3ACE9B"
 
-OP_CTX ctx = { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+PAIRING_GROUP group = { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
 
 int op_init(void) {
-	BIGNUM *a = NULL, *b = NULL, *x = NULL, *r = NULL;
+	BIGNUM *a = NULL, *b = NULL, *x = NULL, *r = NULL, *p = NULL, *one = NULL;
+	EC_POINT *g1 = NULL;
 
-	ctx.bn = BN_CTX_new();
-	ctx.mn = BN_MONT_CTX_new();
-	if (ctx.bn == NULL || ctx.mn == NULL) {
+	group.bn = BN_CTX_new();
+	if (group.bn == NULL) {
 		op_free();
 		return 0;
 	}
 
-	if (BN_hex2bn(&ctx.prime, P) != (sizeof(P) - 1)) {
+	if (BN_hex2bn(&p, P) != (sizeof(P) - 1)) {
 		return 0;
 	}
 
-	if (!BN_MONT_CTX_set(ctx.mn, ctx.prime, ctx.bn)) {
+	a = BN_CTX_get(group.bn);
+	b = BN_CTX_get(group.bn);
+	one = BN_CTX_get(group.bn);
+	if (one == NULL) {
+		op_free();
 		return 0;
 	}
+	if (!BN_set_word(a, 0) || !BN_set_word(b, 2) || !BN_set_word(one, 1)) {
+		op_free();
+		return 0;
+	}
+	group.ec = EC_GROUP_new_curve_GFp(p, a, b, group.bn);
+	if (group.ec == NULL) {
+		op_free();
+		return 0;
+	}
+	group.field = &group.ec->field;
 
-	a = BN_CTX_get(ctx.bn);
-	b = BN_CTX_get(ctx.bn);
-	ctx.one = BN_CTX_get(ctx.bn);
-	if (a == NULL || b == NULL || ctx.one == NULL) {
-		op_free();
-		return 0;
-	}
-	if (!BN_set_word(a, 0) || !BN_set_word(b, 2)) {
-		op_free();
-		return 0;
-	}
-	ctx.ec = EC_GROUP_new_curve_GFp(ctx.prime, a, b, ctx.bn);
-	if (ctx.ec == NULL) {
-		op_free();
-		return 0;
-	}
-
-	ctx.g1 = EC_POINT_new(ctx.ec);
-	if (ctx.g1 == NULL) {
+	g1 = EC_POINT_new(group.ec);
+	if (g1 == NULL) {
 		op_free();
 		return 0;
 	}
 
-	if (!BN_set_word(ctx.one, 1) || BN_hex2bn(&x, X) != (sizeof(X) - 1)) {
+	if (BN_hex2bn(&x, X) != (sizeof(X) - 1)) {
 		op_free();
 		return 0;
 	}
@@ -86,18 +83,18 @@ int op_init(void) {
 		return 0;
 	}
 
-	if (!EC_POINT_set_affine_coordinates_GFp(ctx.ec, ctx.g1, x, ctx.one, ctx.bn)) {
+	if (!EC_POINT_set_affine_coordinates_GFp(group.ec, g1, x, one, group.bn)) {
 		op_free();
 		return 0;
 	}
-	if (!EC_GROUP_set_generator(ctx.ec, ctx.g1, r, ctx.one)) {
+	if (!EC_GROUP_set_generator(group.ec, g1, r, one)) {
 		op_free();
 		return 0;
 	}
 
-	ctx.g2x = (FP2 *)calloc(1, sizeof(FP2));
-	ctx.g2y = (FP2 *)calloc(1, sizeof(FP2));
-	if (ctx.g2x == NULL || ctx.g2y == NULL) {
+	group.g2x = (FP2 *)calloc(1, sizeof(FP2));
+	group.g2y = (FP2 *)calloc(1, sizeof(FP2));
+	if (group.g2x == NULL || group.g2y == NULL) {
 		op_free();
 		return 0;
 	}
@@ -106,48 +103,42 @@ int op_init(void) {
 		op_free();
 		return 0;
 	}
-	BN_copy(&ctx.g2x->f[0], x);
+	BN_copy(&group.g2x->f[0], x);
 
 	if (BN_hex2bn(&x, X1) != (sizeof(X1) - 1)) {
 		op_free();
 		return 0;
 	}
-	BN_copy(&ctx.g2x->f[1], x);
+	BN_copy(&group.g2x->f[1], x);
 
 	if (BN_hex2bn(&x, Y0) != (sizeof(Y0) - 1)) {
 		op_free();
 		return 0;
 	}
-	BN_copy(&ctx.g2y->f[0], x);
+	BN_copy(&group.g2y->f[0], x);
 
 	if (BN_hex2bn(&x, Y1) != (sizeof(Y1) - 1)) {
 		op_free();
 		return 0;
 	}
-	BN_copy(&ctx.g2y->f[1], x);
-
-	if (!BN_to_montgomery(ctx.one, ctx.one, ctx.mn, ctx.bn)) {
-		op_free();
-		return 0;
-	}	
+	BN_copy(&group.g2y->f[1], x);
 
 	BN_free(a);
 	BN_free(b);
 	BN_free(x);	
 	BN_free(r);
+	BN_free(p);
+	EC_POINT_free(g1);
 	return 1;
 }
 
 void op_free(void) {
-	BN_free(ctx.prime);
-	BN_free(ctx.one);	
-	BN_CTX_free(ctx.bn);
-	BN_MONT_CTX_free(ctx.mn);
-	EC_GROUP_free(ctx.ec);
-	BN_free(&ctx.g2x->f[0]);
-	BN_free(&ctx.g2x->f[1]);
-	BN_free(&ctx.g2y->f[0]);
-	BN_free(&ctx.g2y->f[1]);	
-	free(ctx.g2x);
-	free(ctx.g2y);
+	BN_CTX_free(group.bn);
+	EC_GROUP_free(group.ec);
+	BN_free(&group.g2x->f[0]);
+	BN_free(&group.g2x->f[1]);
+	BN_free(&group.g2y->f[0]);
+	BN_free(&group.g2y->f[1]);
+	free(group.g2x);
+	free(group.g2y);
 }
