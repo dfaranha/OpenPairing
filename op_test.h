@@ -1,6 +1,6 @@
 /*
- * OpenPairing is an implementation of a bilinear pairing over OpenSSL
- * Copyright (C) 2015 OpenPairing Authors
+ * OpenPairing is an implementation of a cryptographic pairing over OpenSSL
+ * Copyright (C) 2015 MIRACL
  *
  * This file is part of OpenPairing. OpenPairing is legal property of its
  * developers, whose names are not listed here. Please refer to the COPYRIGHT
