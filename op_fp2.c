@@ -31,8 +31,8 @@
 #define FRB51 "176FB82A79C3D2593FD674BA0088AE2BE997ECB7E18B8A1F2982022318AF693B"
 
 static void print(BIGNUM *r) {
-	BIGNUM *t = BN_CTX_get(ctx.bn);
-	BN_from_montgomery(t, r, ctx.mn, ctx.bn);
+	BIGNUM *t = BN_CTX_get(group.bn);
+	group.ec->meth->field_decode(group.ec, t, r, group.bn);
 	BN_print_fp(stdout, t);
 	printf("\n");
 }
@@ -47,17 +47,17 @@ void FP2_free(FP2 *a) {
 	BN_free(&a->f[1]);
 }
 
-int FP2_rand(FP2 *a) {
-	if (!BN_rand_range(&a->f[0], ctx.prime)) {
+int FP2_rand(const PAIRING_GROUP *group, FP2 *a) {
+	if (!BN_rand_range(&a->f[0], group->field)) {
 		return 0;
 	}
-	if (!BN_rand_range(&a->f[1], ctx.prime)) {
+	if (!BN_rand_range(&a->f[1], group->field)) {
 		return 0;
 	}
 	return 1;
 }
 
-void FP2_print(FP2 *a) {
+void FP2_print(const FP2 *a) {
 	BN_print_fp(stdout, &a->f[0]);
 	printf("\n");
 	BN_print_fp(stdout, &a->f[1]);
@@ -74,7 +74,7 @@ int FP2_zero(FP2 *a) {
 	return 1;
 }
 
-int FP2_cmp(FP2 *a, FP2 *b) {
+int FP2_cmp(const FP2 *a, const FP2 *b) {
 	if (BN_cmp(&a->f[0], &b->f[0]) != 0) {
 		return 1;
 	}
@@ -84,56 +84,488 @@ int FP2_cmp(FP2 *a, FP2 *b) {
 	return 0;
 }
 
-void FP2_copy(FP2 *a, FP2 *b) {
+void FP2_copy(FP2 *a, const FP2 *b) {
 	BN_copy(&a->f[0], &b->f[0]);
 	BN_copy(&a->f[1], &b->f[1]);
 }
 
-int FP2_is_zero(FP2 *a) {
+int FP2_is_zero(const FP2 *a) {
 	return BN_is_zero(&a->f[0]) && BN_is_zero(&a->f[1]);
 }
 
-int FP2_add(FP2 *r, FP2 *a, FP2 *b) {
-	if (!BN_mod_add(&r->f[0], &a->f[0], &b->f[0], ctx.prime, ctx.bn)) {
+int FP2_add(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, const FP2 *b) {
+	if (!BN_mod_add_quick(&r->f[0], &a->f[0], &b->f[0], group->field)) {
 		return 0;
 	}
-	if (!BN_mod_add(&r->f[1], &a->f[1], &b->f[1], ctx.prime, ctx.bn)) {
-		return 0;
-	}
-	return 1;
-}
-
-int FP2_sub(FP2 *r, FP2 *a, FP2 *b) {
-	if (!BN_mod_sub(&r->f[0], &a->f[0], &b->f[0], ctx.prime, ctx.bn)) {
-		return 0;
-	}
-	if (!BN_mod_sub(&r->f[1], &a->f[1], &b->f[1], ctx.prime, ctx.bn)) {
+	if (!BN_mod_add_quick(&r->f[1], &a->f[1], &b->f[1], group->field)) {
 		return 0;
 	}
 	return 1;
 }
 
-int FP2_neg(FP2 *r, FP2 *a) {
-	if (!BN_sub(&r->f[0], ctx.prime, &a->f[0])) {
+int FP2_sub(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, const FP2 *b) {
+	if (!BN_mod_sub_quick(&r->f[0], &a->f[0], &b->f[0], group->field)) {
 		return 0;
 	}
-	if (!BN_sub(&r->f[1], ctx.prime, &a->f[1])) {
+	if (!BN_mod_sub_quick(&r->f[1], &a->f[1], &b->f[1], group->field)) {
+		return 0;
+	}
+	return 1;
+}
+
+int FP2_neg(const PAIRING_GROUP *group, FP2 *r, const FP2 *a) {
+	if (!BN_sub(&r->f[0], group->field, &a->f[0])) {
+		return 0;
+	}
+	if (!BN_sub(&r->f[1], group->field, &a->f[1])) {
 		return 0;
 	}	
 	return 1;
 }
 
-int FP2_mul_unr(FP2 *r, FP2 *a, FP2 *b) {
+int FP2_mul_frb(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, int i, BN_CTX *ctx) {
+	BIGNUM *frb;
+	FP2 fp2_frb;
+	BN_CTX *new_ctx = NULL;
+	int ret = 0;
+
+	if (ctx == NULL) {
+		ctx = new_ctx = BN_CTX_new();
+		if (ctx == NULL) {
+			return -1;
+		}
+	}
+
+	FP2_init(&fp2_frb);
+	BN_CTX_start(ctx);
+	frb = BN_CTX_get(ctx);
+	if (frb == NULL) {
+		goto err;
+	}
+
+	if (i == 1) {
+		if (BN_hex2bn(&frb, FRB10) != (sizeof(FRB10) - 1)) {
+			return 0;
+		}
+		BN_copy(&fp2_frb.f[0], frb);
+		if (BN_hex2bn(&frb, FRB11) != (sizeof(FRB11) - 1)) {
+			return 0;
+		}
+		BN_copy(&fp2_frb.f[1], frb);
+		if (!FP2_mul(group, r, a, &fp2_frb, ctx)) {
+			goto err;
+		}
+	}
+
+	if (i == 2) {
+		if (BN_hex2bn(&frb, FRB2) != (sizeof(FRB2) - 1)) {
+			return 0;
+		}
+		if (!group->ec->meth->field_mul(group->ec, &r->f[0], &a->f[0], frb, ctx)) {
+			goto err;
+		}
+		if (!group->ec->meth->field_mul(group->ec, &r->f[1], &a->f[1], frb, ctx)) {
+			goto err;
+		}
+		if (!FP2_mul_art(group, r, r, ctx)) {
+			goto err;
+		}
+	}
+
+	if (i == 3) {
+		if (BN_hex2bn(&frb, FRB3) != (sizeof(FRB3) - 1)) {
+			return 0;
+		}
+		if (!group->ec->meth->field_mul(group->ec, &r->f[0], &a->f[0], frb, ctx)) {
+			goto err;
+		}
+		if (!group->ec->meth->field_mul(group->ec, &r->f[1], &a->f[1], frb, ctx)) {
+			goto err;
+		}
+		if (!FP2_mul_nor(group, r, r, ctx)) {
+			goto err;
+		}		
+	}
+
+	if (i == 4) {
+		if (BN_hex2bn(&frb, FRB4) != (sizeof(FRB4) - 1)) {
+			return 0;
+		}
+		if (!group->ec->meth->field_mul(group->ec, &r->f[0], &a->f[0], frb, ctx)) {
+			goto err;
+		}
+		if (!group->ec->meth->field_mul(group->ec, &r->f[1], &a->f[1], frb, ctx)) {
+			goto err;
+		}
+	}
+
+	if (i == 5) {
+		if (BN_hex2bn(&frb, FRB50) != (sizeof(FRB50) - 1)) {
+			return 0;
+		}
+		BN_copy(&fp2_frb.f[0], frb);
+		if (BN_hex2bn(&frb, FRB51) != (sizeof(FRB51) - 1)) {
+			return 0;
+		}
+		BN_copy(&fp2_frb.f[1], frb);
+		if (!FP2_mul(group, r, a, &fp2_frb, ctx)) {
+			goto err;
+		}
+	}	
+
+	ret = 1;
+
+ err:
+    FP2_free(&fp2_frb);
+    BN_CTX_end(ctx);
+    if (new_ctx != NULL)
+        BN_CTX_free(new_ctx);
+	return ret;
+}
+
+int FP2_mul(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, const FP2 *b, BN_CTX *ctx) {
 	BIGNUM *t0, *t1, *t2, *t3, *t4;
-	int code = 0;
+	BN_CTX *new_ctx = NULL;
+	int ret = 0;
 
-	t0 = BN_CTX_get(ctx.bn);
-	t1 = BN_CTX_get(ctx.bn);
-	t2 = BN_CTX_get(ctx.bn);
-	t3 = BN_CTX_get(ctx.bn);
-	t4 = BN_CTX_get(ctx.bn);
+	if (ctx == NULL) {
+		ctx = new_ctx = BN_CTX_new();
+		if (ctx == NULL) {
+			return -1;
+		}
+	}
 
-	if (t0 == NULL || t1 == NULL || t2 == NULL || t3 == NULL || t4 == NULL) {
+	BN_CTX_start(ctx);
+	t0 = BN_CTX_get(ctx);
+	t1 = BN_CTX_get(ctx);
+	t2 = BN_CTX_get(ctx);
+	t3 = BN_CTX_get(ctx);
+	t4 = BN_CTX_get(ctx);
+	if (t4 == NULL) {
+		goto err;
+	}
+
+	/* Karatsuba algorithm. */
+
+	/* t2 = a_0 + a_1, t1 = b_0 + b_1. */
+	if (!BN_mod_add_quick(t2, &a->f[0], &a->f[1], group->field)) {
+		goto err;
+	}
+
+	if (!BN_mod_add_quick(t1, &b->f[0], &b->f[1], group->field)) {
+		goto err;
+	}
+
+	/* t3 = (a_0 + a_1) * (b_0 + b_1). */
+	if (!group->ec->meth->field_mul(group->ec, t3, t2, t1, ctx)) {
+		goto err;
+	}
+
+	/* t0 = a_0 * b_0, t4 = a_1 * b_1. */
+	if (!group->ec->meth->field_mul(group->ec, t0, &a->f[0], &b->f[0], ctx)) {
+		goto err;
+	}
+	if (!group->ec->meth->field_mul(group->ec, t4, &a->f[1], &b->f[1], ctx)) {
+		goto err;
+	}
+
+	/* t2 = (a_0 * b_0) + (a_1 * b_1). */
+	if (!BN_mod_add_quick(t2, t0, t4, group->field)) {
+		goto err;
+	}
+
+	/* t1 = (a_0 * b_0) + u^2 * (a_1 * b_1). */
+	if (!BN_mod_sub_quick(&r->f[0], t0, t4, group->field)) {
+		goto err;
+	}
+
+	/* t4 = t3 - t2. */
+	if (!BN_mod_sub_quick(&r->f[1], t3, t2, group->field)) {
+		goto err;
+	}
+
+	ret = 1;
+ err:
+    BN_CTX_end(ctx);
+    if (new_ctx != NULL)
+        BN_CTX_free(new_ctx);
+	return ret;
+}
+
+int FP2_mul_nor(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, BN_CTX *ctx) {
+	BIGNUM *t;
+	BN_CTX *new_ctx = NULL;
+	int ret = 0;
+
+	if (ctx == NULL) {
+		ctx = new_ctx = BN_CTX_new();
+		if (ctx == NULL) {
+			return -1;
+		}
+	}
+
+	BN_CTX_start(ctx);
+	t = BN_CTX_get(ctx);
+	if (t == NULL) {
+		goto err;
+	}
+
+	if (!BN_sub(t, group->field, &a->f[1])) {
+		goto err;
+	}
+	if (!BN_mod_add_quick(&r->f[1], &a->f[0], &a->f[1], group->field)) {
+		goto err;
+	}
+	if (!BN_mod_add_quick(&r->f[0], t, &a->f[0], group->field)) {
+		goto err;
+	}
+
+	ret = 1;
+
+ err:
+    BN_CTX_end(ctx);
+    if (new_ctx != NULL)
+        BN_CTX_free(new_ctx);
+	return ret;
+}
+
+int FP2_mul_art(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, BN_CTX *ctx) {
+	BIGNUM *t;
+	BN_CTX *new_ctx = NULL;
+	int ret = 0;
+
+	if (ctx == NULL) {
+		ctx = new_ctx = BN_CTX_new();
+		if (ctx == NULL) {
+			return -1;
+		}
+	}
+
+	BN_CTX_start(ctx);
+	t = BN_CTX_get(ctx);
+	if (t == NULL) {
+		goto err;
+	}
+
+	BN_copy(t, &a->f[0]);
+	if (!BN_sub(&r->f[0], group->field, &a->f[1])) {
+		goto err;
+	}
+	BN_copy(&r->f[1], t);
+
+	ret = 1;
+
+ err:
+    BN_CTX_end(ctx);
+    if (new_ctx != NULL)
+        BN_CTX_free(new_ctx);
+	return ret;
+}
+
+int FP2_sqr(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, BN_CTX *ctx) {
+	BIGNUM *t0, *t1, *t2;
+	BN_CTX *new_ctx = NULL;
+	int ret = 0;
+
+	if (ctx == NULL) {
+		ctx = new_ctx = BN_CTX_new();
+		if (ctx == NULL) {
+			return -1;
+		}
+	}
+
+	BN_CTX_start(ctx);
+	t0 = BN_CTX_get(ctx);
+	t1 = BN_CTX_get(ctx);
+	t2 = BN_CTX_get(ctx);
+	if (t2 == NULL) {
+		goto err;
+	}
+
+	/* t0 = (a_0 + a_1). */
+	if (!BN_mod_add_quick(t0, &a->f[0], &a->f[1], group->field)) {
+		goto err;
+	}
+
+	/* t1 = (a_0 - a_1). */
+	if (!BN_mod_sub_quick(t1, &a->f[0], &a->f[1], group->field)) {
+		goto err;
+	}
+
+	/* t2 = 2 * a_0. */
+	if (!BN_lshift1(t2, &a->f[0])) {
+		goto err;
+	}
+
+	/* c_1 = 2 * a_0 * a_1. */
+	if (!group->ec->meth->field_mul(group->ec, &r->f[1], t2, &a->f[1], ctx)) {
+		goto err;
+	}
+	/* c_0 = a_0^2 + a_1^2 * u^2. */
+	if (!group->ec->meth->field_mul(group->ec, &r->f[0], t0, t1, ctx)) {
+		goto err;
+	}
+
+	ret = 1;
+
+ err:
+    BN_CTX_end(ctx);
+    if (new_ctx != NULL)
+        BN_CTX_free(new_ctx);
+	return ret;
+}
+
+int FP2_inv(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, BN_CTX *ctx) {
+	BIGNUM *t0, *t1;
+	BN_CTX *new_ctx = NULL;
+	int ret = 0;
+
+	if (ctx == NULL) {
+		ctx = new_ctx = BN_CTX_new();
+		if (ctx == NULL) {
+			return -1;
+		}
+	}
+
+	BN_CTX_start(ctx);
+	t0 = BN_CTX_get(ctx);
+	t1 = BN_CTX_get(ctx);
+	if (t1 == NULL) {
+		goto err;
+	}
+
+	/* t0 = a_0^2, t1 = a_1^2. */
+	if (!group->ec->meth->field_mul(group->ec, t0, &a->f[0], &a->f[0], ctx)) {
+		goto err;
+	}
+	if (!group->ec->meth->field_mul(group->ec, t1, &a->f[1], &a->f[1], ctx)) {
+		goto err;
+	}
+
+	/* t1 = 1/(a_0^2 + a_1^2). */
+	if (!BN_mod_add_quick(t0, t0, t1, group->field)) {
+		goto err;
+	}
+
+	if (!group->ec->meth->field_decode(group->ec, t0, t0, ctx)) {
+		goto err;
+	}
+
+	if (!BN_mod_inverse(t1, t0, group->field, ctx)) {
+		goto err;
+	}
+
+	if (!group->ec->meth->field_encode(group->ec, t1, t1, ctx)) {
+		goto err;
+	}
+
+	/* c_0 = a_0/(a_0^2 + a_1^2). */
+	if (!group->ec->meth->field_mul(group->ec, &r->f[0], &a->f[0], t1, ctx)) {
+		goto err;
+	}
+
+	/* c_1 = a_1/(a_0^2 + a_1^2). */
+	if (!group->ec->meth->field_mul(group->ec, &r->f[1], &a->f[1], t1, ctx)) {
+		goto err;
+	}
+
+	if (!BN_sub(&r->f[1], group->field, &r->f[1])) {
+		goto err;
+	}
+
+	ret = 1;
+
+ err:
+    BN_CTX_end(ctx);
+    if (new_ctx != NULL)
+        BN_CTX_free(new_ctx);
+	return ret;
+}
+
+int FP2_conv_uni(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, BN_CTX *ctx) {
+	FP2 t;
+	int ret = 0;
+
+	FP2_init(&t);
+
+	/* t = a^{-1}. */
+	if (!FP2_inv(group, &t, a, ctx)) {
+		goto err;
+	}
+	/* c = a^p. */
+	if (!FP2_inv_uni(group, r, a)) {
+		goto err;
+	}
+	/* c = a^(p - 1). */
+	if (!FP2_mul(group, r, r, &t, ctx)) {
+		goto err;
+	}
+
+	ret = 1;
+
+err:
+	FP2_free(&t);
+	return ret;
+}
+
+int FP2_inv_uni(const PAIRING_GROUP *group, FP2 *r, const FP2 *a) {
+	BN_copy(&r->f[0], &a->f[0]);
+	if (!BN_sub(&r->f[1], group->field, &a->f[1])) {
+		return 0;
+	}
+	return 1;
+}
+
+int FP2_inv_sim(const PAIRING_GROUP *group, FP2 *r, FP2 *s, const FP2 *a, const FP2 *b, BN_CTX *ctx) {
+	int i, ret = 0;
+	FP2 u, t;
+
+	FP2_init(&t);
+	FP2_init(&u);
+
+	FP2_copy(&t, a);
+
+	if (!FP2_mul(group, &u, a, b, ctx)) {
+		goto err;
+	}
+
+	if (!FP2_inv(group, &u, &u, ctx)) {
+		goto err;
+	}
+
+	if (!FP2_mul(group, r, b, &u, ctx)) {
+		goto err;
+	}
+	if (!FP2_mul(group, s, &t, &u, ctx)) {
+		goto err;
+	}
+
+	ret = 1;
+err:
+	FP2_free(&t);
+	FP2_free(&u);
+	return ret;
+}
+
+int FP2_mul_unr(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, const FP2 *b, BN_CTX *ctx) {
+	BIGNUM *t0, *t1, *t2, *t3, *t4;
+	BN_CTX *new_ctx = NULL;
+	int ret = 0;
+
+	if (ctx == NULL) {
+		ctx = new_ctx = BN_CTX_new();
+		if (ctx == NULL) {
+			return -1;
+		}
+	}
+
+	BN_CTX_start(ctx);
+	t0 = BN_CTX_get(ctx);
+	t1 = BN_CTX_get(ctx);
+	t2 = BN_CTX_get(ctx);
+	t3 = BN_CTX_get(ctx);
+	t4 = BN_CTX_get(ctx);
+	if (t4 == NULL) {
 		goto err;
 	}
 
@@ -148,15 +580,15 @@ int FP2_mul_unr(FP2 *r, FP2 *a, FP2 *b) {
 	}
 
 	/* t3 = (a_0 + a_1) * (b_0 + b_1). */
-	if (!BN_mul(t3, t2, t1, ctx.bn)) {
+	if (!BN_mul(t3, t2, t1, ctx)) {
 		goto err;
 	}
 
 	/* t0 = a_0 * b_0, t4 = a_1 * b_1. */
-	if (!BN_mul(t0, &a->f[0], &b->f[0], ctx.bn)) {
+	if (!BN_mul(t0, &a->f[0], &b->f[0], ctx)) {
 		goto err;
 	}
-	if (!BN_mul(t4, &a->f[1], &b->f[1], ctx.bn)) {
+	if (!BN_mul(t4, &a->f[1], &b->f[1], ctx)) {
 		goto err;
 	}
 
@@ -175,425 +607,55 @@ int FP2_mul_unr(FP2 *r, FP2 *a, FP2 *b) {
 		goto err;
 	}
 
-	code = 1;
+	ret = 1;
 
-err:
-	BN_free(t0);
-	BN_free(t1);
-	BN_free(t2);
-	BN_free(t3);
-	BN_free(t4);
-	return code;
+ err:
+    BN_CTX_end(ctx);
+    if (new_ctx != NULL)
+        BN_CTX_free(new_ctx);
+	return ret;
 }
 
-int FP2_rdc(FP2 *r, FP2 *a) {
-	int code = 0;
+int FP2_rdc(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, BN_CTX *ctx) {
+	int ret = 0;
 
 	/* c_0 = t1 mod p. */
-	if (!BN_from_montgomery(&r->f[0], &a->f[0], ctx.mn, ctx.bn)) {
+	if (!group->ec->meth->field_decode(group->ec, &r->f[0], &a->f[0], ctx)) {
 		goto err;
 	}
-	if (!BN_from_montgomery(&r->f[1], &a->f[1], ctx.mn, ctx.bn)) {
-		goto err;
-	}
-
-	if (BN_is_negative(&r->f[0])) {
-		if (!BN_add(&r->f[0], &r->f[0], ctx.prime)) {
-			goto err;
-		}
-	}
-	if (BN_is_negative(&r->f[1])) {
-		if (!BN_add(&r->f[1], &r->f[1], ctx.prime)) {
-			goto err;
-		}
-	}
-
-	code = 1;
-
-err:
-	return code;
-}
-
-int FP2_mul(FP2 *r, FP2 *a, FP2 *b) {
-	int code = 0;
-
-	if (!FP2_mul_unr(r, a, b)) {
-		goto err;
-	}
-	if (!FP2_rdc(r, r)) {
-		goto err;
-	}
-
-	code = 1;
-
-err:
-	return code;
-}
-
-int FP2_mul_frb(FP2 *r, FP2 *a, int i) {
-	BIGNUM *frb;
-	FP2 fp2_frb;
-	int code = 0;
-
-	FP2_init(&fp2_frb);
-	frb = BN_CTX_get(ctx.bn);
-	if (frb == NULL) {
-		goto err;
-	}
-
-	if (i == 1) {
-		if (BN_hex2bn(&frb, FRB10) != (sizeof(FRB10) - 1)) {
-			return 0;
-		}
-		BN_copy(&fp2_frb.f[0], frb);
-		if (BN_hex2bn(&frb, FRB11) != (sizeof(FRB11) - 1)) {
-			return 0;
-		}
-		BN_copy(&fp2_frb.f[1], frb);
-		if (!FP2_mul(r, a, &fp2_frb)) {
-			goto err;
-		}
-	}
-
-	if (i == 2) {
-		if (BN_hex2bn(&frb, FRB2) != (sizeof(FRB2) - 1)) {
-			return 0;
-		}
-		if (!BN_mod_mul_montgomery(&r->f[0], &a->f[0], frb, ctx.mn, ctx.bn)) {
-			goto err;
-		}
-		if (!BN_mod_mul_montgomery(&r->f[1], &a->f[1], frb, ctx.mn, ctx.bn)) {
-			goto err;
-		}
-		if (!FP2_mul_art(r, r)) {
-			goto err;
-		}
-	}
-
-	if (i == 3) {
-		if (BN_hex2bn(&frb, FRB3) != (sizeof(FRB3) - 1)) {
-			return 0;
-		}
-		if (!BN_mod_mul_montgomery(&r->f[0], &a->f[0], frb, ctx.mn, ctx.bn)) {
-			goto err;
-		}
-		if (!BN_mod_mul_montgomery(&r->f[1], &a->f[1], frb, ctx.mn, ctx.bn)) {
-			goto err;
-		}
-		if (!FP2_mul_nor(r, r)) {
-			goto err;
-		}		
-	}
-
-	if (i == 4) {
-		if (BN_hex2bn(&frb, FRB4) != (sizeof(FRB4) - 1)) {
-			return 0;
-		}
-		if (!BN_mod_mul_montgomery(&r->f[0], &a->f[0], frb, ctx.mn, ctx.bn)) {
-			goto err;
-		}
-		if (!BN_mod_mul_montgomery(&r->f[1], &a->f[1], frb, ctx.mn, ctx.bn)) {
-			goto err;
-		}
-	}
-
-	if (i == 5) {
-		if (BN_hex2bn(&frb, FRB50) != (sizeof(FRB50) - 1)) {
-			return 0;
-		}
-		BN_copy(&fp2_frb.f[0], frb);
-		if (BN_hex2bn(&frb, FRB51) != (sizeof(FRB51) - 1)) {
-			return 0;
-		}
-		BN_copy(&fp2_frb.f[1], frb);
-		if (!FP2_mul(r, a, &fp2_frb)) {
-			goto err;
-		}
-	}	
-
-	code = 1;
-err:
-	BN_free(frb);
-	FP2_free(&fp2_frb);
-	return code;
-}
-
-int FP2_mul2(FP2 *r, FP2 *a, FP2 *b) {
-	BIGNUM *t0, *t1, *t2, *t3, *t4;
-	int code = 0;
-
-	t0 = BN_CTX_get(ctx.bn);
-	t1 = BN_CTX_get(ctx.bn);
-	t2 = BN_CTX_get(ctx.bn);
-	t3 = BN_CTX_get(ctx.bn);
-	t4 = BN_CTX_get(ctx.bn);
-
-	if (t0 == NULL || t1 == NULL || t2 == NULL || t3 == NULL || t4 == NULL) {
-		goto err;
-	}
-
-	/* Karatsuba algorithm. */
-
-	/* t2 = a_0 + a_1, t1 = b_0 + b_1. */
-	if (!BN_mod_add(t2, &a->f[0], &a->f[1], ctx.prime, ctx.bn)) {
-		goto err;
-	}
-
-	if (!BN_mod_add(t1, &b->f[0], &b->f[1], ctx.prime, ctx.bn)) {
-		goto err;
-	}
-
-	/* t3 = (a_0 + a_1) * (b_0 + b_1). */
-	if (!BN_mod_mul_montgomery(t3, t2, t1, ctx.mn, ctx.bn)) {
-		goto err;
-	}
-
-	/* t0 = a_0 * b_0, t4 = a_1 * b_1. */
-	if (!BN_mod_mul_montgomery(t0, &a->f[0], &b->f[0], ctx.mn, ctx.bn)) {
-		goto err;
-	}
-	if (!BN_mod_mul_montgomery(t4, &a->f[1], &b->f[1], ctx.mn, ctx.bn)) {
-		goto err;
-	}
-
-	/* t2 = (a_0 * b_0) + (a_1 * b_1). */
-	if (!BN_mod_add(t2, t0, t4, ctx.prime, ctx.bn)) {
-		goto err;
-	}
-
-	/* t1 = (a_0 * b_0) + u^2 * (a_1 * b_1). */
-	if (!BN_mod_sub(&r->f[0], t0, t4, ctx.prime, ctx.bn)) {
-		goto err;
-	}
-
-	/* t4 = t3 - t2. */
-	if (!BN_mod_sub(&r->f[1], t3, t2, ctx.prime, ctx.bn)) {
-		goto err;
-	}
-
-	code = 1;
-
-err:
-	BN_free(t0);
-	BN_free(t1);
-	BN_free(t2);
-	BN_free(t3);
-	BN_free(t4);
-	return code;
-}
-
-int FP2_mul_nor(FP2 *r, FP2 *a) {
-	BIGNUM *t;
-	int code = 0;
-
-	t = BN_CTX_get(ctx.bn);
-	if (t == NULL) {
-		goto err;
-	}
-
-	if (!BN_sub(t, ctx.prime, &a->f[1])) {
-		goto err;
-	}
-	if (!BN_mod_add(&r->f[1], &a->f[0], &a->f[1], ctx.prime, ctx.bn)) {
-		goto err;
-	}
-	if (!BN_mod_add(&r->f[0], t, &a->f[0], ctx.prime, ctx.bn)) {
-		goto err;
-	}
-
-	code = 1;
-
-err:
-
-	BN_free(t);
-	return code;
-}
-
-int FP2_mul_art(FP2 *r, FP2 *a) {
-	BIGNUM *t;
-	int code = 0;
-
-	t = BN_CTX_get(ctx.bn);
-	if (t == NULL) {
-		goto err;
-	}
-
-	BN_copy(t, &a->f[0]);
-	if (!BN_sub(&r->f[0], ctx.prime, &a->f[1])) {
-		goto err;
-	}
-	BN_copy(&r->f[1], t);
-
-	code = 1;
-
-err:
-	BN_free(t);
-	return code;
-}
-
-int FP2_sqr(FP2 *r, FP2 *a) {
-	BIGNUM *t0, *t1, *t2;
-	int code = 0;
-
-	t0 = BN_CTX_get(ctx.bn);
-	t1 = BN_CTX_get(ctx.bn);
-	t2 = BN_CTX_get(ctx.bn);
-
-	/* t0 = (a_0 + a_1). */
-	if (!BN_add(t0, &a->f[0], &a->f[1])) {
-		goto err;
-	}
-
-	/* t1 = (a_0 - a_1). */
-	if (!BN_sub(t1, &a->f[0], &a->f[1])) {
-		goto err;
-	}
-
-	/* t2 = 2 * a_0. */
-	if (!BN_lshift1(t2, &a->f[0])) {
-		goto err;
-	}
-
-	/* c_1 = 2 * a_0 * a_1. */
-	if (!BN_mod_mul_montgomery(&r->f[1], t2, &a->f[1], ctx.mn, ctx.bn)) {
-		goto err;
-	}
-	/* c_0 = a_0^2 + a_1^2 * u^2. */
-	if (!BN_mod_mul_montgomery(&r->f[0], t0, t1, ctx.mn, ctx.bn)) {
+	if (!group->ec->meth->field_decode(group->ec, &r->f[1], &a->f[1], ctx)) {
 		goto err;
 	}
 
 	if (BN_is_negative(&r->f[0])) {
-		BN_add(&r->f[0], &r->f[0], ctx.prime);
+		if (!BN_add(&r->f[0], &r->f[0], group->field)) {
+			goto err;
+		}
 	}
-
 	if (BN_is_negative(&r->f[1])) {
-		BN_add(&r->f[1], &r->f[1], ctx.prime);
+		if (!BN_add(&r->f[1], &r->f[1], group->field)) {
+			goto err;
+		}
 	}
 
-	code = 1;
-	
-err:
-	BN_free(t0);
-	BN_free(t1);
-	BN_free(t2);
-	return code;
-}
-
-int FP2_inv(FP2 *r, FP2 *a) {
-	BIGNUM *t0, *t1;
-	int code = 0;
-
-	t0 = BN_CTX_get(ctx.bn);
-	t1 = BN_CTX_get(ctx.bn);
-
-	/* t0 = a_0^2, t1 = a_1^2. */
-	if (!BN_mod_mul_montgomery(t0, &a->f[0], &a->f[0], ctx.mn, ctx.bn)) {
-		goto err;
-	}
-	if (!BN_mod_mul_montgomery(t1, &a->f[1], &a->f[1], ctx.mn, ctx.bn)) {
-		goto err;
-	}
-
-	/* t1 = 1/(a_0^2 + a_1^2). */
-	if (!BN_mod_add(t0, t0, t1, ctx.prime, ctx.bn)) {
-		goto err;
-	}
-
-	if (!BN_from_montgomery(t0, t0, ctx.mn, ctx.bn)) {
-		goto err;
-	}
-
-	if (!BN_mod_inverse(t1, t0, ctx.prime, ctx.bn)) {
-		goto err;
-	}
-
-	if (!BN_to_montgomery(t1, t1, ctx.mn, ctx.bn)) {
-		goto err;
-	}
-
-	/* c_0 = a_0/(a_0^2 + a_1^2). */
-	if (!BN_mod_mul_montgomery(&r->f[0], &a->f[0], t1, ctx.mn, ctx.bn)) {
-		goto err;
-	}
-
-	/* c_1 = a_0/(a_0^2 + a_1^2). */
-	if (!BN_mod_mul_montgomery(&r->f[1], &a->f[1], t1, ctx.mn, ctx.bn)) {
-		goto err;
-	}
-
-	if (!BN_sub(&r->f[1], ctx.prime, &r->f[1])) {
-		goto err;
-	}
-
-	code = 1;
-err:
-	BN_free(t0);
-	BN_free(t1);
-	return code;
-}
-
-int FP2_conv_uni(FP2 *r, FP2 *a) {
-	FP2 t;
-	int code = 0;
-
-	FP2_init(&t);
-
-	/* t = a^{-1}. */
-	if (!FP2_inv(&t, a)) {
-		goto err;
-	}
-	/* c = a^p. */
-	if (!FP2_inv_uni(r, a)) {
-		goto err;
-	}
-	/* c = a^(p - 1). */
-	if (!FP2_mul(r, r, &t)) {
-		goto err;
-	}
-
-	code = 1;
+	ret = 1;
 
 err:
-	FP2_free(&t);
-	return code;
+	return ret;
 }
 
-int FP2_inv_uni(FP2 *r, FP2 *a) {
-	BN_copy(&r->f[0], &a->f[0]);
-	if (!BN_sub(&r->f[1], ctx.prime, &a->f[1])) {
-		return 0;
+int FP2_mul2(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, const FP2 *b, BN_CTX *ctx) {
+	int ret = 0;
+
+	if (!FP2_mul_unr(group, r, a, b, ctx)) {
+		goto err;
 	}
-	return 1;
-}
-
-int FP2_inv_sim(FP2 *r, FP2 *s, FP2 *a, FP2 *b) {
-	int i, code = 0;
-	FP2 u, t;
-
-	FP2_init(&t);
-	FP2_init(&u);
-
-	FP2_copy(&t, a);
-
-	if (!FP2_mul(&u, a, b)) {
+	if (!FP2_rdc(group, r, r, ctx)) {
 		goto err;
 	}
 
-	if (!FP2_inv(&u, &u)) {
-		goto err;
-	}
+	ret = 1;
 
-	if (!FP2_mul(r, b, &u)) {
-		goto err;
-	}
-	if (!FP2_mul(s, &t, &u)) {
-		goto err;
-	}
-
-	code = 1;
 err:
-	FP2_free(&t);
-	FP2_free(&u);
-	return code;
+	return ret;
 }
