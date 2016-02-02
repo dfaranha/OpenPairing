@@ -32,7 +32,7 @@ void FP12_free(FP12 *a) {
 	FP6_free(&a->f[1]);
 }
 
-int FP12_rand(PAIRING_GROUP *group, FP12 *a) {
+int FP12_rand(const PAIRING_GROUP *group, FP12 *a) {
 	if (!FP6_rand(group, &a->f[0])) {
 		return 0;
 	}
@@ -42,7 +42,7 @@ int FP12_rand(PAIRING_GROUP *group, FP12 *a) {
 	return 1;
 }
 
-void FP12_print(FP12 *a) {
+void FP12_print(const FP12 *a) {
 	FP6_print(&a->f[0]);
 	FP6_print(&a->f[1]);
 }
@@ -57,7 +57,7 @@ int FP12_zero(FP12 *a) {
 	return 1;
 }
 
-int FP12_cmp(FP12 *a, FP12 *b) {
+int FP12_cmp(const FP12 *a, const FP12 *b) {
 	if (FP6_cmp(&a->f[0], &b->f[0]) != 0) {
 		return 1;
 	}
@@ -67,46 +67,46 @@ int FP12_cmp(FP12 *a, FP12 *b) {
 	return 0;
 }
 
-void FP12_copy(FP12 *a, FP12 *b) {
+void FP12_copy(FP12 *a, const FP12 *b) {
 	FP6_copy(&a->f[0], &b->f[0]);
 	FP6_copy(&a->f[1], &b->f[1]);
 }
 
-int FP12_is_zero(FP12 *a) {
+int FP12_is_zero(const FP12 *a) {
 	return FP6_is_zero(&a->f[0]) && FP6_is_zero(&a->f[1]);
 }
 
-int FP12_add(FP12 *r, FP12 *a, FP12 *b) {
-	if (!FP6_add(&group, &r->f[0], &a->f[0], &b->f[0])) {
+int FP12_add(const PAIRING_GROUP *group, FP12 *r, const FP12 *a, const FP12 *b) {
+	if (!FP6_add(group, &r->f[0], &a->f[0], &b->f[0])) {
 		return 0;
 	}
-	if (!FP6_add(&group, &r->f[1], &a->f[1], &b->f[1])) {
-		return 0;
-	}
-	return 1;
-}
-
-int FP12_sub(FP12 *r, FP12 *a, FP12 *b) {
-	if (!FP6_sub(&group, &r->f[0], &a->f[0], &b->f[0])) {
-		return 0;
-	}
-	if (!FP6_sub(&group, &r->f[1], &a->f[1], &b->f[1])) {
+	if (!FP6_add(group, &r->f[1], &a->f[1], &b->f[1])) {
 		return 0;
 	}
 	return 1;
 }
 
-int FP12_neg(FP12 *r, FP12 *a) {
-	if (!FP6_neg(&group, &r->f[0], &a->f[0])) {
+int FP12_sub(const PAIRING_GROUP *group, FP12 *r, const FP12 *a, const FP12 *b) {
+	if (!FP6_sub(group, &r->f[0], &a->f[0], &b->f[0])) {
 		return 0;
 	}
-	if (!FP6_neg(&group, &r->f[1], &a->f[1])) {
+	if (!FP6_sub(group, &r->f[1], &a->f[1], &b->f[1])) {
+		return 0;
+	}
+	return 1;
+}
+
+int FP12_neg(const PAIRING_GROUP *group, FP12 *r, const FP12 *a) {
+	if (!FP6_neg(group, &r->f[0], &a->f[0])) {
+		return 0;
+	}
+	if (!FP6_neg(group, &r->f[1], &a->f[1])) {
 		return 0;
 	}	
 	return 1;
 }
 
-int FP12_mul(FP12 *r, FP12 *a, FP12 *b) {
+int FP12_mul(const PAIRING_GROUP *group, FP12 *r, const FP12 *a, const FP12 *b, BN_CTX *ctx) {
 	FP6 t0, t1, t2;
 	int ret = 0;
 
@@ -117,39 +117,39 @@ int FP12_mul(FP12 *r, FP12 *a, FP12 *b) {
 	/* Karatsuba algorithm. */
 
 	/* t0 = a_0 * b_0. */
-	if (!FP6_mul(&group, &t0, &a->f[0], &b->f[0], group.bn)) {
+	if (!FP6_mul(group, &t0, &a->f[0], &b->f[0], ctx)) {
 		goto err;
 	}
 	/* t1 = a_1 * b_1. */
-	if (!FP6_mul(&group, &t1, &a->f[1], &b->f[1], group.bn)) {
+	if (!FP6_mul(group, &t1, &a->f[1], &b->f[1], ctx)) {
 		goto err;
 	}
 	/* t2 = b_0 + b_1. */
-	if (!FP6_add(&group, &t2, &b->f[0], &b->f[1])) {
+	if (!FP6_add(group, &t2, &b->f[0], &b->f[1])) {
 		goto err;
 	}
 
 	/* c_1 = a_0 + a_1. */
-	if (!FP6_add(&group, &r->f[1], &a->f[0], &a->f[1])) {
+	if (!FP6_add(group, &r->f[1], &a->f[0], &a->f[1])) {
 		goto err;
 	}
 
 	/* c_1 = (a_0 + a_1) * (b_0 + b_1) */
-	if (!FP6_mul(&group, &r->f[1], &r->f[1], &t2, group.bn)) {
+	if (!FP6_mul(group, &r->f[1], &r->f[1], &t2, ctx)) {
 		goto err;
 	}
-	if (!FP6_sub(&group, &r->f[1], &r->f[1], &t0)) {
+	if (!FP6_sub(group, &r->f[1], &r->f[1], &t0)) {
 		goto err;
 	}
-	if (!FP6_sub(&group, &r->f[1], &r->f[1], &t1)) {
+	if (!FP6_sub(group, &r->f[1], &r->f[1], &t1)) {
 		goto err;
 	}
 
 	/* c_0 = a_0b_0 + v * a_1b_1. */
-	if (!FP6_mul_art(&group, &t1, &t1, group.bn)) {
+	if (!FP6_mul_art(group, &t1, &t1, ctx)) {
 		goto err;
 	}
-	if (!FP6_add(&group, &r->f[0], &t0, &t1)) {
+	if (!FP6_add(group, &r->f[0], &t0, &t1)) {
 		goto err;
 	}
 
@@ -162,7 +162,7 @@ err:
 	return ret;
 }
 
-int FP12_mul_dxs(FP12 *r, FP12 *a, FP12 *b) {
+int FP12_mul_dxs(const PAIRING_GROUP *group, FP12 *r, const FP12 *a, const FP12 *b, BN_CTX *ctx) {
 	FP6 t0, t1, t2;
 	int ret = 0;
 
@@ -171,45 +171,45 @@ int FP12_mul_dxs(FP12 *r, FP12 *a, FP12 *b) {
 	FP6_init(&t2);
 
 	/* t0 = a_0 * b_0 */
-	if (!FP2_mul(&group, &t0.f[0], &a->f[0].f[0], &b->f[0].f[0], group.bn)) {
+	if (!FP2_mul(group, &t0.f[0], &a->f[0].f[0], &b->f[0].f[0], ctx)) {
 		goto err;
 	}
-	if (!FP2_mul(&group, &t0.f[1], &a->f[0].f[1], &b->f[0].f[0], group.bn)) {
+	if (!FP2_mul(group, &t0.f[1], &a->f[0].f[1], &b->f[0].f[0], ctx)) {
 		goto err;
 	}
-	if (!FP2_mul(&group, &t0.f[2], &a->f[0].f[2], &b->f[0].f[0], group.bn)) {
+	if (!FP2_mul(group, &t0.f[2], &a->f[0].f[2], &b->f[0].f[0], ctx)) {
 		goto err;
 	}
 
 	/* t2 = b_0 + b_1. */
-	if (!FP2_add(&group, &t2.f[0], &b->f[0].f[0], &b->f[1].f[0])) {
+	if (!FP2_add(group, &t2.f[0], &b->f[0].f[0], &b->f[1].f[0])) {
 		goto err;
 	}
 	FP2_copy(&t2.f[1], &b->f[1].f[1]);
 
 	/* t1 = a_1 * b_1. */
-	if (!FP6_mul_dxs(&group, &t1, &a->f[1], &b->f[1], group.bn)) {
+	if (!FP6_mul_dxs(group, &t1, &a->f[1], &b->f[1], ctx)) {
 		goto err;
 	}
 	/* c_1 = a_0 + a_1. */
-	if (!FP6_add(&group, &r->f[1], &a->f[0], &a->f[1])) {
+	if (!FP6_add(group, &r->f[1], &a->f[0], &a->f[1])) {
 		goto err;
 	}
 	/* c_1 = (a_0 + a_1) * (b_0 + b_1) - a_0 * b_0 - a_1 * b_1. */
-	if (!FP6_mul_dxs(&group, &r->f[1], &r->f[1], &t2, group.bn)) {
+	if (!FP6_mul_dxs(group, &r->f[1], &r->f[1], &t2, ctx)) {
 		goto err;
 	}
-	if (!FP6_sub(&group, &r->f[1], &r->f[1], &t0)) {
+	if (!FP6_sub(group, &r->f[1], &r->f[1], &t0)) {
 		goto err;
 	}
-	if (!FP6_sub(&group, &r->f[1], &r->f[1], &t1)) {
+	if (!FP6_sub(group, &r->f[1], &r->f[1], &t1)) {
 		goto err;
 	}
 	/* c_0 = a_0 * b_0 + v * a_1 * b_1. */
-	if (!FP6_mul_art(&group, &t1, &t1, group.bn)) {
+	if (!FP6_mul_art(group, &t1, &t1, ctx)) {
 		goto err;
 	}
-	if (!FP6_add(&group, &r->f[0], &t0, &t1)) {
+	if (!FP6_add(group, &r->f[0], &t0, &t1)) {
 		goto err;
 	}
 
@@ -221,35 +221,35 @@ err:
 	return ret;
 }
 
-int FP12_inv(FP12 *c, FP12 *a) {
+int FP12_inv(const PAIRING_GROUP *group, FP12 *c, const FP12 *a, BN_CTX *ctx) {
 	FP6 t0, t1;
 	int ret = 0;
 
 	FP6_init(&t0);
 	FP6_init(&t1);
 
-	if (!FP6_sqr(&group, &t0, &a->f[0], group.bn)) {
+	if (!FP6_sqr(group, &t0, &a->f[0], ctx)) {
 		goto err;
 	}
-	if (!FP6_sqr(&group, &t1, &a->f[1], group.bn)) {
+	if (!FP6_sqr(group, &t1, &a->f[1], ctx)) {
 		goto err;
 	}	
-	if (!FP6_mul_art(&group, &t1, &t1, group.bn)) {
+	if (!FP6_mul_art(group, &t1, &t1, ctx)) {
 		goto err;
 	}
-	if (!FP6_sub(&group, &t0, &t0, &t1)) {
+	if (!FP6_sub(group, &t0, &t0, &t1)) {
 		goto err;
 	}
-	if (!FP6_inv(&group, &t0, &t0, group.bn)) {
+	if (!FP6_inv(group, &t0, &t0, ctx)) {
 		goto err;
 	}
-	if (!FP6_mul(&group, &c->f[0], &a->f[0], &t0, group.bn)) {
+	if (!FP6_mul(group, &c->f[0], &a->f[0], &t0, ctx)) {
 		goto err;
 	}
-	if (!FP6_neg(&group, &c->f[1], &a->f[1])) {
+	if (!FP6_neg(group, &c->f[1], &a->f[1])) {
 		goto err;
 	}
-	if (!FP6_mul(&group, &c->f[1], &c->f[1], &t0, group.bn)) {
+	if (!FP6_mul(group, &c->f[1], &c->f[1], &t0, ctx)) {
 		goto err;
 	}
 
@@ -261,47 +261,47 @@ err:
 	return ret;
 }
 
-int FP12_inv_uni(FP12 *c, FP12 *a) {
+int FP12_inv_uni(const PAIRING_GROUP *group, FP12 *c, const FP12 *a, BN_CTX *ctx) {
 	FP6_copy(&c->f[0], &a->f[0]);
-	if (!FP6_neg(&group, &c->f[1], &a->f[1])) {
+	if (!FP6_neg(group, &c->f[1], &a->f[1])) {
 		return 0;
 	}
 	return 1;
 }
 
-int FP12_frb(FP12 *r, FP12 *a) {
+int FP12_frb(const PAIRING_GROUP *group, FP12 *r, const FP12 *a, BN_CTX *ctx) {
 	int ret = 0;
-	if (!FP2_inv_uni(&group, &r->f[0].f[0], &a->f[0].f[0])) {
+	if (!FP2_inv_uni(group, &r->f[0].f[0], &a->f[0].f[0])) {
 		goto err;
 	}
-	if (!FP2_inv_uni(&group, &r->f[1].f[0], &a->f[1].f[0])) {
+	if (!FP2_inv_uni(group, &r->f[1].f[0], &a->f[1].f[0])) {
 		goto err;
 	}
-	if (!FP2_inv_uni(&group, &r->f[0].f[1], &a->f[0].f[1])) {
+	if (!FP2_inv_uni(group, &r->f[0].f[1], &a->f[0].f[1])) {
 		goto err;
 	}
-	if (!FP2_inv_uni(&group, &r->f[1].f[1], &a->f[1].f[1])) {
+	if (!FP2_inv_uni(group, &r->f[1].f[1], &a->f[1].f[1])) {
 		goto err;
 	}
-	if (!FP2_inv_uni(&group, &r->f[0].f[2], &a->f[0].f[2])) {
+	if (!FP2_inv_uni(group, &r->f[0].f[2], &a->f[0].f[2])) {
 		goto err;
 	}
-	if (!FP2_inv_uni(&group, &r->f[1].f[2], &a->f[1].f[2])) {
+	if (!FP2_inv_uni(group, &r->f[1].f[2], &a->f[1].f[2])) {
 		goto err;
 	}
-	if (!FP2_mul_frb(&group, &r->f[1].f[0], &r->f[1].f[0], 1, group.bn)) {
+	if (!FP2_mul_frb(group, &r->f[1].f[0], &r->f[1].f[0], 1, ctx)) {
 		goto err;
 	}
-	if (!FP2_mul_frb(&group, &r->f[0].f[1], &r->f[0].f[1], 2, group.bn)) {
+	if (!FP2_mul_frb(group, &r->f[0].f[1], &r->f[0].f[1], 2, ctx)) {
 		goto err;
 	}
-	if (!FP2_mul_frb(&group, &r->f[1].f[1], &r->f[1].f[1], 3, group.bn)) {
+	if (!FP2_mul_frb(group, &r->f[1].f[1], &r->f[1].f[1], 3, ctx)) {
 		goto err;
 	}
-	if (!FP2_mul_frb(&group, &r->f[0].f[2], &r->f[0].f[2], 4, group.bn)) {
+	if (!FP2_mul_frb(group, &r->f[0].f[2], &r->f[0].f[2], 4, ctx)) {
 		goto err;
 	}
-	if (!FP2_mul_frb(&group, &r->f[1].f[2], &r->f[1].f[2], 5, group.bn)) {
+	if (!FP2_mul_frb(group, &r->f[1].f[2], &r->f[1].f[2], 5, ctx)) {
 		goto err;
 	}
 	ret = 1;
@@ -309,29 +309,29 @@ err:
 	return ret;
 }
 
-int FP12_cyc(FP12 *r, FP12 *a) {
+int FP12_cyc(const PAIRING_GROUP *group, FP12 *r, const FP12 *a, BN_CTX *ctx) {
 	FP12 t;
 	int ret = 0;
 
 	FP12_init(&t);
 
-	if (!FP12_inv(&t, a)) {
+	if (!FP12_inv(group, &t, a, ctx)) {
 		goto err;
 	}
-	if (!FP12_inv_uni(r, a)) {
+	if (!FP12_inv_uni(group, r, a, ctx)) {
 		goto err;
 	}
-	if (!FP12_mul(r, r, &t)) {
+	if (!FP12_mul(group, r, r, &t, ctx)) {
 		goto err;
 	}
 
-	if (!FP12_frb(&t, r)) {
+	if (!FP12_frb(group, &t, r, ctx)) {
 		goto err;
 	}	
-	if (!FP12_frb(&t, &t)) {
+	if (!FP12_frb(group, &t, &t, ctx)) {
 		goto err;
 	}
-	if (!FP12_mul(r, r, &t)) {
+	if (!FP12_mul(group, r, r, &t, ctx)) {
 		goto err;
 	}
 
@@ -341,7 +341,7 @@ err:
 	return ret;
 }
 
-int FP12_exp_cyc(FP12 *r, FP12 *a) {
+int FP12_exp_cyc(const PAIRING_GROUP *group, FP12 *r, const FP12 *a, BN_CTX *ctx) {
 	int i, ret = 0;
 	FP12 t0, t1;
 
@@ -350,24 +350,24 @@ int FP12_exp_cyc(FP12 *r, FP12 *a) {
 
 	FP12_copy(&t0, a);
 	for (i = 0; i < 55; i++) {
-		if (!FP12_sqr_pck(&t0, &t0)) {
+		if (!FP12_sqr_pck(group, &t0, &t0, ctx)) {
 			goto err;
 		}
 	}
 	FP12_copy(&t1, &t0);
 	for (i = 55; i < 62; i++) {
-		if (!FP12_sqr_pck(&t1, &t1)) {
+		if (!FP12_sqr_pck(group, &t1, &t1, ctx)) {
 			goto err;
 		}
 	}
-	if (!FP12_back(&t0, &t1, &t0, &t1, group.bn)) {
+	if (!FP12_back(group, &t0, &t1, &t0, &t1, ctx)) {
 		goto err;
 	}
 
-	if (!FP12_mul(&t0, &t0, &t1)) {
+	if (!FP12_mul(group, &t0, &t0, &t1, ctx)) {
 		goto err;
 	}
-	if (!FP12_mul(r, &t0, a)) {
+	if (!FP12_mul(group, r, &t0, a, ctx)) {
 		goto err;
 	}
 
@@ -378,42 +378,42 @@ err:
 	return ret;
 }
 
-int FP12_sqr(FP12 *r, FP12 *a) {
+int FP12_sqr(const PAIRING_GROUP *group, FP12 *r, const FP12 *a, BN_CTX *ctx) {
 	FP6 t0, t1;
 	int ret = 0;
 
 	FP6_init(&t0);
 	FP6_init(&t1);
 
-	if (!FP6_add(&group, &t0, &a->f[0], &a->f[1])) {
+	if (!FP6_add(group, &t0, &a->f[0], &a->f[1])) {
 		goto err;
 	}
 
-	if (!FP6_add(&group, &t0, &a->f[0], &a->f[1])) {
+	if (!FP6_add(group, &t0, &a->f[0], &a->f[1])) {
 		goto err;
 	}
-	if (!FP6_mul_art(&group, &t1, &a->f[1], group.bn)) {
+	if (!FP6_mul_art(group, &t1, &a->f[1], ctx)) {
 		goto err;
 	}
-	if (!FP6_add(&group, &t1, &a->f[0], &t1)) {
+	if (!FP6_add(group, &t1, &a->f[0], &t1)) {
 		goto err;
 	}
-	if (!FP6_mul(&group, &t0, &t0, &t1, group.bn)) {
+	if (!FP6_mul(group, &t0, &t0, &t1, ctx)) {
 		goto err;
 	}
-	if (!FP6_mul(&group, &r->f[1], &a->f[0], &a->f[1], group.bn)) {
+	if (!FP6_mul(group, &r->f[1], &a->f[0], &a->f[1], ctx)) {
 		goto err;
 	}
-	if (!FP6_sub(&group, &r->f[0], &t0, &r->f[1])) {
+	if (!FP6_sub(group, &r->f[0], &t0, &r->f[1])) {
 		goto err;
 	}
-	if (!FP6_mul_art(&group, &t1, &r->f[1], group.bn)) {
+	if (!FP6_mul_art(group, &t1, &r->f[1], ctx)) {
 		goto err;
 	}
-	if (!FP6_sub(&group, &r->f[0], &r->f[0], &t1)) {
+	if (!FP6_sub(group, &r->f[0], &r->f[0], &t1)) {
 		goto err;
 	}
-	if (!FP6_add(&group, &r->f[1], &r->f[1], &r->f[1])) {
+	if (!FP6_add(group, &r->f[1], &r->f[1], &r->f[1])) {
 		goto err;
 	}
 	ret = 1;
@@ -423,7 +423,7 @@ err:
 	return ret;
 }
 
-int FP12_sqr_pck(FP12 *r, FP12 *a) {
+int FP12_sqr_pck(const PAIRING_GROUP *group, FP12 *r, const FP12 *a, BN_CTX *ctx) {
 	FP2 t0, t1, t2, t3, t4, t5, t6;
 	int ret;
 
@@ -435,99 +435,99 @@ int FP12_sqr_pck(FP12 *r, FP12 *a) {
 	FP2_init(&t5);
 	FP2_init(&t6);
 
-	if (!FP2_sqr(&group, &t0, &a->f[0].f[1], group.bn)) {
+	if (!FP2_sqr(group, &t0, &a->f[0].f[1], ctx)) {
 		goto err;
 	}
-	if (!FP2_sqr(&group, &t1, &a->f[1].f[2], group.bn)) {
+	if (!FP2_sqr(group, &t1, &a->f[1].f[2], ctx)) {
 		goto err;
 	}
-	if (!FP2_add(&group, &t5, &a->f[0].f[1], &a->f[1].f[2])) {
+	if (!FP2_add(group, &t5, &a->f[0].f[1], &a->f[1].f[2])) {
 		goto err;
 	}
-	if (!FP2_sqr(&group, &t2, &t5, group.bn)) {
-		goto err;
-	}
-
-	if (!FP2_add(&group, &t3, &t0, &t1)) {
-		goto err;
-	}
-	if (!FP2_sub(&group, &t5, &t2, &t3)) {
+	if (!FP2_sqr(group, &t2, &t5, ctx)) {
 		goto err;
 	}
 
-	if (!FP2_add(&group, &t6, &a->f[1].f[0], &a->f[0].f[2])) {
+	if (!FP2_add(group, &t3, &t0, &t1)) {
 		goto err;
 	}
-	if (!FP2_sqr(&group, &t3, &t6, group.bn)) {
-		goto err;
-	}
-	if (!FP2_sqr(&group, &t2, &a->f[1].f[0], group.bn)) {
+	if (!FP2_sub(group, &t5, &t2, &t3)) {
 		goto err;
 	}
 
-	if (!FP2_mul_nor(&group, &t6, &t5, group.bn)) {
+	if (!FP2_add(group, &t6, &a->f[1].f[0], &a->f[0].f[2])) {
 		goto err;
 	}
-	if (!FP2_add(&group, &t5, &t6, &a->f[1].f[0])) {
+	if (!FP2_sqr(group, &t3, &t6, ctx)) {
 		goto err;
 	}
-	if (!FP2_add(&group, &t5, &t5, &t5)) {
-		goto err;
-	}
-	if (!FP2_add(&group, &r->f[1].f[0], &t5, &t6)) {
+	if (!FP2_sqr(group, &t2, &a->f[1].f[0], ctx)) {
 		goto err;
 	}
 
-	if (!FP2_mul_nor(&group, &t4, &t1, group.bn)) {
+	if (!FP2_mul_nor(group, &t6, &t5, ctx)) {
 		goto err;
 	}
-	if (!FP2_add(&group, &t5, &t0, &t4)) {
+	if (!FP2_add(group, &t5, &t6, &a->f[1].f[0])) {
 		goto err;
 	}
-	if (!FP2_sub(&group, &t6, &t5, &a->f[0].f[2])){
+	if (!FP2_add(group, &t5, &t5, &t5)) {
 		goto err;
 	}
-
-	if (!FP2_sqr(&group, &t1, &a->f[0].f[2], group.bn)) {
-		goto err;
-	}
-
-	if (!FP2_add(&group, &t6, &t6, &t6)) {
-		goto err;
-	}
-	if (!FP2_add(&group, &r->f[0].f[2], &t5, &t6)) {
+	if (!FP2_add(group, &r->f[1].f[0], &t5, &t6)) {
 		goto err;
 	}
 
-	if (!FP2_mul_nor(&group, &t4, &t1, group.bn)) {
+	if (!FP2_mul_nor(group, &t4, &t1, ctx)) {
 		goto err;
 	}
-	if (!FP2_add(&group, &t5, &t2, &t4)) {
+	if (!FP2_add(group, &t5, &t0, &t4)) {
 		goto err;
 	}
-	if (!FP2_sub(&group, &t6, &t5, &a->f[0].f[1])){
-		goto err;
-	}
-	if (!FP2_add(&group, &t6, &t6, &t6)) {
-		goto err;
-	}
-	if (!FP2_add(&group, &r->f[0].f[1], &t5, &t6)) {
+	if (!FP2_sub(group, &t6, &t5, &a->f[0].f[2])){
 		goto err;
 	}
 
-	if (!FP2_add(&group, &t0, &t2, &t1)) {
+	if (!FP2_sqr(group, &t1, &a->f[0].f[2], ctx)) {
 		goto err;
 	}
-	if (!FP2_sub(&group, &t5, &t3, &t0)){
+
+	if (!FP2_add(group, &t6, &t6, &t6)) {
 		goto err;
 	}
-	if (!FP2_add(&group, &t6, &t5, &a->f[1].f[2])) {
+	if (!FP2_add(group, &r->f[0].f[2], &t5, &t6)) {
 		goto err;
 	}
-	if (!FP2_add(&group, &t6, &t6, &t6)) {
+
+	if (!FP2_mul_nor(group, &t4, &t1, ctx)) {
+		goto err;
+	}
+	if (!FP2_add(group, &t5, &t2, &t4)) {
+		goto err;
+	}
+	if (!FP2_sub(group, &t6, &t5, &a->f[0].f[1])){
+		goto err;
+	}
+	if (!FP2_add(group, &t6, &t6, &t6)) {
+		goto err;
+	}
+	if (!FP2_add(group, &r->f[0].f[1], &t5, &t6)) {
+		goto err;
+	}
+
+	if (!FP2_add(group, &t0, &t2, &t1)) {
+		goto err;
+	}
+	if (!FP2_sub(group, &t5, &t3, &t0)){
+		goto err;
+	}
+	if (!FP2_add(group, &t6, &t5, &a->f[1].f[2])) {
+		goto err;
+	}
+	if (!FP2_add(group, &t6, &t6, &t6)) {
 		goto err;
 	}	
-	if (!FP2_add(&group, &r->f[1].f[2], &t5, &t6)) {
+	if (!FP2_add(group, &r->f[1].f[2], &t5, &t6)) {
 		goto err;
 	}
 
@@ -543,7 +543,7 @@ err:
 	return ret;
 }
 
-int FP12_back(FP12 *r, FP12 *s, FP12 *a, FP12 *b, BN_CTX *ctx) {
+int FP12_back(const PAIRING_GROUP *group, FP12 *r, FP12 *s, const FP12 *a, const FP12 *b, BN_CTX *ctx) {
 	FP2 t0[2], t1[2], t2[2];
 	FP12 t[2], u[2];
 	BIGNUM *one;
@@ -563,7 +563,7 @@ int FP12_back(FP12 *r, FP12 *s, FP12 *a, FP12 *b, BN_CTX *ctx) {
 		goto err;
 	}
 
-	if (!group.ec->meth->field_set_to_one(group.ec, one, group.bn)) {
+	if (!group->ec->meth->field_set_to_one(group->ec, one, ctx)) {
 		goto err;
 	}
 
@@ -583,74 +583,74 @@ int FP12_back(FP12 *r, FP12 *s, FP12 *a, FP12 *b, BN_CTX *ctx) {
 
 	for (i = 0; i < 2; i++) {
 		/* t0 = g4^2. */
-		if (!FP2_sqr(&group, &t0[i], &u[i].f[0].f[1], group.bn)) {
+		if (!FP2_sqr(group, &t0[i], &u[i].f[0].f[1], ctx)) {
 			goto err;
 		}
 		/* t1 = 3 * g4^2 - 2 * g3. */
-		if (!FP2_sub(&group, &t1[i], &t0[i], &u[i].f[0].f[2])) {
+		if (!FP2_sub(group, &t1[i], &t0[i], &u[i].f[0].f[2])) {
 			goto err;
 		}
-		if (!FP2_add(&group, &t1[i], &t1[i], &t1[i])) {
+		if (!FP2_add(group, &t1[i], &t1[i], &t1[i])) {
 			goto err;
 		}
-		if (!FP2_add(&group, &t1[i], &t1[i], &t0[i])) {
+		if (!FP2_add(group, &t1[i], &t1[i], &t0[i])) {
 			goto err;
 		}
 		/* t0 = E * g5^2 + t1. */
-		if (!FP2_sqr(&group, &t2[i], &u[i].f[1].f[2], group.bn)) {
+		if (!FP2_sqr(group, &t2[i], &u[i].f[1].f[2], ctx)) {
 			goto err;
 		}
-		if (!FP2_mul_nor(&group, &t0[i], &t2[i], group.bn)) {
+		if (!FP2_mul_nor(group, &t0[i], &t2[i], ctx)) {
 			goto err;
 		}
-		if (!FP2_add(&group, &t0[i], &t0[i], &t1[i])) {
+		if (!FP2_add(group, &t0[i], &t0[i], &t1[i])) {
 			goto err;
 		}
 		/* t1 = (4 * g2). */
-		if (!FP2_add(&group, &t1[i], &u[i].f[1].f[0], &u[i].f[1].f[0])) {
+		if (!FP2_add(group, &t1[i], &u[i].f[1].f[0], &u[i].f[1].f[0])) {
 			goto err;
 		}
-		if (!FP2_add(&group, &t1[i], &t1[i], &t1[i])) {
+		if (!FP2_add(group, &t1[i], &t1[i], &t1[i])) {
 			goto err;
 		}
 	}
 
 	/* t1 = 1 / t1. */
-	if (!FP2_inv_sim(&group, &t1[0], &t1[1], &t1[0], &t1[1], group.bn)) {
+	if (!FP2_inv_sim(group, &t1[0], &t1[1], &t1[0], &t1[1], ctx)) {
 		goto err;
 	}
 
 	for (i = 0; i < 2; i++) {
 		/* t0 = g1. */
-		if (!FP2_mul(&group, &t[i].f[1].f[1], &t0[i], &t1[i], group.bn)) {
+		if (!FP2_mul(group, &t[i].f[1].f[1], &t0[i], &t1[i], ctx)) {
 			goto err;
 		}
 		/* t1 = g3 * g4. */
-		if (!FP2_mul(&group, &t1[i], &u[i].f[0].f[2], &u[i].f[0].f[1], group.bn)) {
+		if (!FP2_mul(group, &t1[i], &u[i].f[0].f[2], &u[i].f[0].f[1], ctx)) {
 			goto err;
 		}
 		/* t2 = 2 * g1^2 - 3 * g3 * g4. */
-		if (!FP2_sqr(&group, &t2[i], &t[i].f[1].f[1], group.bn)) {
+		if (!FP2_sqr(group, &t2[i], &t[i].f[1].f[1], ctx)) {
 			goto err;
 		}
-		if (!FP2_sub(&group, &t2[i], &t2[i], &t1[i])) {
+		if (!FP2_sub(group, &t2[i], &t2[i], &t1[i])) {
 			goto err;
 		}
-		if (!FP2_add(&group, &t2[i], &t2[i], &t2[i])) {
+		if (!FP2_add(group, &t2[i], &t2[i], &t2[i])) {
 			goto err;
 		}
-		if (!FP2_sub(&group, &t2[i], &t2[i], &t1[i])) {
+		if (!FP2_sub(group, &t2[i], &t2[i], &t1[i])) {
 			goto err;
 		}
 		/* t1 = g2 * g5. */
-		if (!FP2_mul(&group, &t1[i], &u[i].f[1].f[0], &u[i].f[1].f[2], group.bn)) {
+		if (!FP2_mul(group, &t1[i], &u[i].f[1].f[0], &u[i].f[1].f[2], ctx)) {
 			goto err;
 		}
 		/* t2 = E * (2 * g1^2 + g2 * g5 - 3 * g3 * g4) + 1. */
-		if (!FP2_add(&group, &t2[i], &t2[i], &t1[i])) {
+		if (!FP2_add(group, &t2[i], &t2[i], &t1[i])) {
 			goto err;
 		}
-		if (!FP2_mul_nor(&group, &t[i].f[0].f[0], &t2[i], group.bn)) {
+		if (!FP2_mul_nor(group, &t[i].f[0].f[0], &t2[i], ctx)) {
 			goto err;
 		}
 		if (!BN_add(&t[i].f[0].f[0].f[0], &t[i].f[0].f[0].f[0], one)) {

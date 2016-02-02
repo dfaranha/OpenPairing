@@ -353,7 +353,7 @@ static int op_fin(FP12 *r, FP2 *x3, FP2 *y3, FP2 *z3, FP2 *x1, FP2 *y1, BIGNUM *
 	if (!op_add(&l, x3, y3, z3, &x2, &y2, xp, yp)) {
 		goto err;
 	}
-	if (!FP12_mul_dxs(r, r, &l)) {
+	if (!FP12_mul_dxs(&group, r, r, &l, group.bn)) {
 		goto err;
 	}
 
@@ -376,7 +376,7 @@ static int op_fin(FP12 *r, FP2 *x3, FP2 *y3, FP2 *z3, FP2 *x1, FP2 *y1, BIGNUM *
 	if (!op_add(&l, x3, y3, z3, &x2, &y2, xp, yp)) {
 		goto err;
 	}
-	if (!FP12_mul_dxs(r, r, &l)) {
+	if (!FP12_mul_dxs(&group, r, r, &l, group.bn)) {
 		goto err;
 	}
 
@@ -400,102 +400,102 @@ static int op_exp(FP12 *r, FP12 *a) {
 
 	/*
 	/* First, compute m = f^(p^6 - 1)(p^2 + 1). */
-	if (!FP12_cyc(r, a)) {
+	if (!FP12_cyc(&group, r, a, group.bn)) {
 		goto err;
 	}
 	/* Now compute m^((p^4 - p^2 + 1) / r). */
 	/* t0 = m^2x. */
-	if (!FP12_exp_cyc(&t0, r)) {
+	if (!FP12_exp_cyc(&group, &t0, r, group.bn)) {
 		goto err;
 	}
 
-	if (!FP12_sqr(&t0, &t0)) {
+	if (!FP12_sqr(&group, &t0, &t0, group.bn)) {
 		goto err;
 	}
 	/* t1 = m^6x. */
-	if (!FP12_sqr(&t1, &t0)) {
+	if (!FP12_sqr(&group, &t1, &t0, group.bn)) {
 		goto err;
 	}
-	if (!FP12_mul(&t1, &t1, &t0)) {
+	if (!FP12_mul(&group, &t1, &t1, &t0, group.bn)) {
 		goto err;
 	}
 
 	/* t2 = m^6x^2. */
-	if (!FP12_exp_cyc(&t2, &t1)) {
+	if (!FP12_exp_cyc(&group, &t2, &t1, group.bn)) {
 		goto err;
 	}
 	/* t3 = m^12x^3. */
-	if (!FP12_sqr(&t3, &t2)) {
+	if (!FP12_sqr(&group, &t3, &t2, group.bn)) {
 		goto err;
 	}
-	if (!FP12_exp_cyc(&t3, &t3)) {
+	if (!FP12_exp_cyc(&group, &t3, &t3, group.bn)) {
 		goto err;
 	}
 
-	if (!FP12_inv_uni(&t0, &t0)) {
+	if (!FP12_inv_uni(&group, &t0, &t0, group.bn)) {
 		goto err;
 	}
-	if (!FP12_inv_uni(&t1, &t1)) {
+	if (!FP12_inv_uni(&group, &t1, &t1, group.bn)) {
 		goto err;
 	}
-	if (!FP12_inv_uni(&t3, &t3)) {
+	if (!FP12_inv_uni(&group, &t3, &t3, group.bn)) {
 		goto err;
 	}
 
 	/* t3 = a = m^12x^3 * m^6x^2 * m^6x. */
-	if (!FP12_mul(&t3, &t3, &t2)) {
+	if (!FP12_mul(&group, &t3, &t3, &t2, group.bn)) {
 		goto err;
 	}
-	if (!FP12_mul(&t3, &t3, &t1)) {
+	if (!FP12_mul(&group, &t3, &t3, &t1, group.bn)) {
 		goto err;
 	}
 
 	/* t0 = b = 1/(m^2x) * t3. */
-	if (!FP12_inv_uni(&t0, &t0)) {
+	if (!FP12_inv_uni(&group, &t0, &t0, group.bn)) {
 		goto err;
 	}
-	if (!FP12_mul(&t0, &t0, &t3)) {
+	if (!FP12_mul(&group, &t0, &t0, &t3, group.bn)) {
 		goto err;
 	}
 
 	/* Compute t2 * t3 * m * b^p * a^p^2 * [b * 1/m]^p^3. */
-	if (!FP12_mul(&t2, &t2, &t3)) {
+	if (!FP12_mul(&group, &t2, &t2, &t3, group.bn)) {
 		goto err;
 	}
-	if (!FP12_mul(&t2, &t2, r)) {
+	if (!FP12_mul(&group, &t2, &t2, r, group.bn)) {
 		goto err;
 	}
-	if (!FP12_inv_uni(r, r)) {
+	if (!FP12_inv_uni(&group, r, r, group.bn)) {
 		goto err;
 	}	
-	if (!FP12_mul(r, r, &t0)) {
+	if (!FP12_mul(&group, r, r, &t0, group.bn)) {
 		goto err;
 	}
-	if (!FP12_frb(r, r)) {
+	if (!FP12_frb(&group, r, r, group.bn)) {
 		goto err;
 	}
-	if (!FP12_frb(r, r)) {
+	if (!FP12_frb(&group, r, r, group.bn)) {
 		goto err;
 	}
-	if (!FP12_frb(r, r)) {
+	if (!FP12_frb(&group, r, r, group.bn)) {
 		goto err;
 	}
-	if (!FP12_mul(r, r, &t2)) {
+	if (!FP12_mul(&group, r, r, &t2, group.bn)) {
 		goto err;
 	}
-	if (!FP12_frb(&t0, &t0)) {
+	if (!FP12_frb(&group, &t0, &t0, group.bn)) {
 		goto err;
 	}
-	if (!FP12_mul(r, r, &t0)) {
+	if (!FP12_mul(&group, r, r, &t0, group.bn)) {
 		goto err;
 	}
-	if (!FP12_frb(&t3, &t3)) {
+	if (!FP12_frb(&group, &t3, &t3, group.bn)) {
 		goto err;
 	}
-	if (!FP12_frb(&t3, &t3)) {
+	if (!FP12_frb(&group, &t3, &t3, group.bn)) {
 		goto err;
 	}
-	if (!FP12_mul(r, r, &t3)) {
+	if (!FP12_mul(&group, r, r, &t3, group.bn)) {
 		goto err;
 	}
 
@@ -582,31 +582,31 @@ int op_map(FP12 *r, const EC_POINT *g, const FP2 *x, const FP2 *y) {
 		if (!op_add(&l, &xq, &yq, &zq, x, y, xp, yp)) {
 			goto err;
 		}
-		if (!FP12_mul_dxs(r, r, &l)) {
+		if (!FP12_mul_dxs(&group, r, r, &l, group.bn)) {
 			goto err;
 		}		
 	}
 	for (i = BN_num_bits(u) - 3; i >= 0; i--) {
-		if (!FP12_sqr(r, r)) {
+		if (!FP12_sqr(&group, r, r, group.bn)) {
 			goto err;
 		}		
 		if (!op_dbl(&l, &xq, &yq, &zq, &xq, &yq, &zq, s, t)) {
 			goto err;
 		}
-		if (!FP12_mul_dxs(r, r, &l)) {
+		if (!FP12_mul_dxs(&group, r, r, &l, group.bn)) {
 			goto err;
 		}		
 		if (BN_is_bit_set(u, i)) {
 			if (!op_add(&l, &xq, &yq, &zq, x, y, xp, yp)) {
 				goto err;
 			}			
-			if (!FP12_mul_dxs(r, r, &l)) {
+			if (!FP12_mul_dxs(&group, r, r, &l, group.bn)) {
 				goto err;
 			}
 		}
 	}
 
-	if (!FP12_inv_uni(r, r)) {
+	if (!FP12_inv_uni(&group, r, r, group.bn)) {
 		goto err;
 	}
 	if (!FP2_neg(&group, &yq, &yq)) {

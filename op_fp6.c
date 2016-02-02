@@ -47,7 +47,7 @@ int FP6_rand(const PAIRING_GROUP *group, FP6 *a) {
 	return 1;
 }
 
-void FP6_print(FP6 *a) {
+void FP6_print(const FP6 *a) {
 	FP2_print(&a->f[0]);
 	FP2_print(&a->f[1]);
 	FP2_print(&a->f[2]);

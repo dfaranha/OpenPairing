@@ -434,8 +434,8 @@ static int addition12(void) {
 	TEST_BEGIN("addition is commutative") {
 		FP12_rand(&group, &a);
 		FP12_rand(&group, &b);
-		FP12_add(&d, &a, &b);
-		FP12_add(&e, &b, &a);
+		FP12_add(&group, &d, &a, &b);
+		FP12_add(&group, &e, &b, &a);
 		TEST_ASSERT(FP12_cmp(&d, &e) == 0, end);
 	} TEST_END;
 
@@ -443,24 +443,24 @@ static int addition12(void) {
 		FP12_rand(&group, &a);
 		FP12_rand(&group, &b);
 		FP12_rand(&group, &c);
-		FP12_add(&d, &a, &b);
-		FP12_add(&d, &d, &c);
-		FP12_add(&e, &b, &c);
-		FP12_add(&e, &a, &e);
+		FP12_add(&group, &d, &a, &b);
+		FP12_add(&group, &d, &d, &c);
+		FP12_add(&group, &e, &b, &c);
+		FP12_add(&group, &e, &a, &e);
 		TEST_ASSERT(FP12_cmp(&d, &e) == 0, end);
 	} TEST_END;
 
 	TEST_BEGIN("addition has identity") {
 		FP12_rand(&group, &a);
 		FP12_zero(&d);
-		FP12_add(&e, &a, &d);
+		FP12_add(&group, &e, &a, &d);
 		TEST_ASSERT(FP12_cmp(&e, &a) == 0, end);
 	} TEST_END;
 
 	TEST_BEGIN("addition has inverse") {
 		FP12_rand(&group, &a);
-		FP12_neg(&d, &a);
-		FP12_add(&e, &a, &d);
+		FP12_neg(&group, &d, &a);
+		FP12_add(&group, &e, &a, &d);
 		TEST_ASSERT(FP12_is_zero(&e), end);
 	} TEST_END;
 
@@ -487,9 +487,9 @@ static int subtraction12(void) {
 	TEST_BEGIN("subtraction is anti-commutative") {
 		FP12_rand(&group, &a);
 		FP12_rand(&group, &b);
-		FP12_sub(&c, &a, &b);
-		FP12_sub(&d, &b, &a);
-		FP12_neg(&d, &d);
+		FP12_sub(&group, &c, &a, &b);
+		FP12_sub(&group, &d, &b, &a);
+		FP12_neg(&group, &d, &d);
 		TEST_ASSERT(FP12_cmp(&c, &d) == 0, end);
 	}
 	TEST_END;
@@ -497,14 +497,14 @@ static int subtraction12(void) {
 	TEST_BEGIN("subtraction has identity") {
 		FP12_rand(&group, &a);
 		FP12_zero(&c);
-		FP12_sub(&d, &a, &c);
+		FP12_sub(&group, &d, &a, &c);
 		TEST_ASSERT(FP12_cmp(&d, &a) == 0, end);
 	}
 	TEST_END;
 
 	TEST_BEGIN("subtraction has inverse") {
 		FP12_rand(&group, &a);
-		FP12_sub(&c, &a, &a);
+		FP12_sub(&group, &c, &a, &a);
 		TEST_ASSERT(FP12_is_zero(&c), end);
 	}
 	TEST_END;
@@ -533,8 +533,8 @@ static int multiplication12(void) {
 	TEST_BEGIN("multiplication is commutative") {
 		FP12_rand(&group, &a);
 		FP12_rand(&group, &b);
-		FP12_mul(&d, &a, &b);
-		FP12_mul(&e, &b, &a);
+		FP12_mul(&group, &d, &a, &b, group.bn);
+		FP12_mul(&group, &e, &b, &a, group.bn);
 		TEST_ASSERT(FP12_cmp(&d, &e) == 0, end);
 	} TEST_END;
 
@@ -542,10 +542,10 @@ static int multiplication12(void) {
 		FP12_rand(&group, &a);
 		FP12_rand(&group, &b);
 		FP12_rand(&group, &c);
-		FP12_mul(&d, &a, &b);
-		FP12_mul(&d, &d, &c);
-		FP12_mul(&e, &b, &c);
-		FP12_mul(&e, &a, &e);
+		FP12_mul(&group, &d, &a, &b, group.bn);
+		FP12_mul(&group, &d, &d, &c, group.bn);
+		FP12_mul(&group, &e, &b, &c, group.bn);
+		FP12_mul(&group, &e, &a, &e, group.bn);
 		TEST_ASSERT(FP12_cmp(&d, &e) == 0, end);
 	} TEST_END;
 
@@ -553,19 +553,19 @@ static int multiplication12(void) {
 		FP12_rand(&group, &a);
 		FP12_rand(&group, &b);
 		FP12_rand(&group, &c);
-		FP12_add(&d, &a, &b);
-		FP12_mul(&d, &c, &d);
-		FP12_mul(&e, &c, &a);
-		FP12_mul(&f, &c, &b);
-		FP12_add(&e, &e, &f);
+		FP12_add(&group, &d, &a, &b);
+		FP12_mul(&group, &d, &c, &d, group.bn);
+		FP12_mul(&group, &e, &c, &a, group.bn);
+		FP12_mul(&group, &f, &c, &b, group.bn);
+		FP12_add(&group, &e, &e, &f);
 		TEST_ASSERT(FP12_cmp(&d, &e) == 0, end);
 	} TEST_END;
 
 	TEST_BEGIN("squaring and multiplication are compatible") {
 		FP12_rand(&group, &a);
 		FP12_rand(&group, &b);
-		FP12_mul(&d, &a, &a);
-		FP12_sqr(&e, &a);
+		FP12_mul(&group, &d, &a, &a, group.bn);
+		FP12_sqr(&group, &e, &a, group.bn);
 		TEST_ASSERT(FP12_cmp(&d, &e) == 0, end);
 	} TEST_END;
 
@@ -591,8 +591,8 @@ static int inversion12(void) {
 
 	TEST_BEGIN("inversion is correct") {
 		FP12_rand(&group, &a);
-		FP12_inv(&b, &a);
-		FP12_mul(&c, &a, &b);
+		FP12_inv(&group, &b, &a, group.bn);
+		FP12_mul(&group, &c, &a, &b, group.bn);
 		FP12_zero(&b);
 		BN_set_word(&b.f[0].f[0].f[0], 1);
 		group.ec->meth->field_encode(group.ec, &b.f[0].f[0].f[0], &b.f[0].f[0].f[0], group.bn);
@@ -621,7 +621,7 @@ static int pairing(void) {
 		/* Notice that pairing returns field elements in Montgomery rep. */
 		op_map(&e, g1, group.g2x, group.g2y);
 		EC_POINT_dbl(group.ec, p, g1, group.bn);
-		FP12_sqr(&e, &e);
+		FP12_sqr(&group, &e, &e, group.bn);
 		op_map(&f, p, group.g2x, group.g2y);
 		TEST_ASSERT(FP12_cmp(&e, &f) == 0, end);
 	} TEST_END;
@@ -791,34 +791,34 @@ static int bench12(void) {
 	BENCH_BEGIN("FP12_add") {
 		FP12_rand(&group, &a);
 		FP12_rand(&group, &b);
-		BENCH_ADD(FP12_add(&c, &a, &b));
+		BENCH_ADD(FP12_add(&group, &c, &a, &b));
 	}
 	BENCH_END;
 
 	BENCH_BEGIN("FP12_mul") {
 		FP12_rand(&group, &a);
 		FP12_rand(&group, &b);
-		BENCH_ADD(FP12_mul(&c, &a, &b));
+		BENCH_ADD(FP12_mul(&group, &c, &a, &b, group.bn));
 	}
 	BENCH_END;
 
 	BENCH_BEGIN("FP12_mul_dxs") {
 		FP12_rand(&group, &a);
 		FP12_rand(&group, &b);
-		BENCH_ADD(FP12_mul_dxs(&c, &a, &b));
+		BENCH_ADD(FP12_mul_dxs(&group, &c, &a, &b, group.bn));
 	}
 	BENCH_END;
 
 	BENCH_BEGIN("FP12_sqr") {
 		FP12_rand(&group, &a);
-		BENCH_ADD(FP12_sqr(&c, &a));
+		BENCH_ADD(FP12_sqr(&group, &c, &a, group.bn));
 	}
 	BENCH_END;
 
 	BENCH_BEGIN("FP12_inv") {
 		FP12_rand(&group, &a);
 		FP12_rand(&group, &b);
-		BENCH_ADD(FP12_inv(&c, &a));
+		BENCH_ADD(FP12_inv(&group, &c, &a, group.bn));
 	}
 	BENCH_END;
 
