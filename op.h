@@ -88,24 +88,23 @@ int FP2_mul2(const PAIRING_GROUP *group, FP2 *r, const FP2 *a, const FP2 *b, BN_
 
 void FP6_init(FP6 *a);
 void FP6_free(FP6 *a);
-
-int FP6_rand(PAIRING_GROUP *group, FP6 *a);
+int FP6_rand(const PAIRING_GROUP *group, FP6 *a);
 void FP6_print(FP6 *a);
 int FP6_zero(FP6 *a);
-int FP6_cmp(FP6 *a, FP6 *b);
-void FP6_copy(FP6 *a, FP6 *b);
-int FP6_is_zero(FP6 *a);
-int FP6_add(FP6 *r, FP6 *a, FP6 *b);
-int FP6_sub(FP6 *r, FP6 *a, FP6 *b);
-int FP6_neg(FP6 *r, FP6 *a);
-int FP6_mul_unr(FP6 *r, FP6 *a, FP6 *b);
-int FP6_rdc(FP6 *r, FP6 *a);
-int FP6_mul(FP6 *r, FP6 *a, FP6 *b);
-int FP6_mul_dxs(FP6 *r, FP6 *a, FP6 *b);
-int FP6_mul_art(FP6 *r, FP6 *a);
-int FP6_sqr(FP6 *r, FP6 *a);
-int FP6_sqr2(FP6 *r, FP6 *a);
-int FP6_inv(FP6 *r, FP6 *a);
+int FP6_cmp(const FP6 *a, const FP6 *b);
+void FP6_copy(FP6 *a, const FP6 *b);
+int FP6_is_zero(const FP6 *a);
+int FP6_add(const PAIRING_GROUP *group, FP6 *r, const FP6 *a, const FP6 *b);
+int FP6_sub(const PAIRING_GROUP *group, FP6 *r, const FP6 *a, const FP6 *b);
+int FP6_neg(const PAIRING_GROUP *group, FP6 *r, const FP6 *a);
+int FP6_mul_unr(const PAIRING_GROUP *group, FP6 *r, const FP6 *a, const FP6 *b, BN_CTX *ctx);
+int FP6_rdc(const PAIRING_GROUP *group, FP6 *r, const FP6 *a, BN_CTX *ctx);
+int FP6_mul(const PAIRING_GROUP *group, FP6 *r, const FP6 *a, const FP6 *b, BN_CTX *ctx);
+int FP6_mul_dxs(const PAIRING_GROUP *group, FP6 *r, const FP6 *a, const FP6 *b, BN_CTX *ctx);
+int FP6_mul_art(const PAIRING_GROUP *group, FP6 *r, const FP6 *a, BN_CTX *ctx);
+int FP6_sqr(const PAIRING_GROUP *group, FP6 *r, const FP6 *a, BN_CTX *ctx);
+int FP6_sqr2(const PAIRING_GROUP *group, FP6 *r, const FP6 *a, BN_CTX *ctx);
+int FP6_inv(const PAIRING_GROUP *group, FP6 *r, const FP6 *a, BN_CTX *ctx);
 
 void FP12_init(FP12 *a);
 void FP12_free(FP12 *a);

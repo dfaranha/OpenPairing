@@ -247,8 +247,8 @@ static int addition6(void) {
 	TEST_BEGIN("addition is commutative") {
 		FP6_rand(&group, &a);
 		FP6_rand(&group, &b);
-		FP6_add(&d, &a, &b);
-		FP6_add(&e, &b, &a);
+		FP6_add(&group, &d, &a, &b);
+		FP6_add(&group, &e, &b, &a);
 		TEST_ASSERT(FP6_cmp(&d, &e) == 0, end);
 	} TEST_END;
 
@@ -256,24 +256,24 @@ static int addition6(void) {
 		FP6_rand(&group, &a);
 		FP6_rand(&group, &b);
 		FP6_rand(&group, &c);
-		FP6_add(&d, &a, &b);
-		FP6_add(&d, &d, &c);
-		FP6_add(&e, &b, &c);
-		FP6_add(&e, &a, &e);
+		FP6_add(&group, &d, &a, &b);
+		FP6_add(&group, &d, &d, &c);
+		FP6_add(&group, &e, &b, &c);
+		FP6_add(&group, &e, &a, &e);
 		TEST_ASSERT(FP6_cmp(&d, &e) == 0, end);
 	} TEST_END;
 
 	TEST_BEGIN("addition has identity") {
 		FP6_rand(&group, &a);
 		FP6_zero(&d);
-		FP6_add(&e, &a, &d);
+		FP6_add(&group, &e, &a, &d);
 		TEST_ASSERT(FP6_cmp(&e, &a) == 0, end);
 	} TEST_END;
 
 	TEST_BEGIN("addition has inverse") {
 		FP6_rand(&group, &a);
-		FP6_neg(&d, &a);
-		FP6_add(&e, &a, &d);
+		FP6_neg(&group, &d, &a);
+		FP6_add(&group, &e, &a, &d);
 		TEST_ASSERT(FP6_is_zero(&e), end);
 	} TEST_END;
 
@@ -300,9 +300,9 @@ static int subtraction6(void) {
 	TEST_BEGIN("subtraction is anti-commutative") {
 		FP6_rand(&group, &a);
 		FP6_rand(&group, &b);
-		FP6_sub(&c, &a, &b);
-		FP6_sub(&d, &b, &a);
-		FP6_neg(&d, &d);
+		FP6_sub(&group, &c, &a, &b);
+		FP6_sub(&group, &d, &b, &a);
+		FP6_neg(&group, &d, &d);
 		TEST_ASSERT(FP6_cmp(&c, &d) == 0, end);
 	}
 	TEST_END;
@@ -310,14 +310,14 @@ static int subtraction6(void) {
 	TEST_BEGIN("subtraction has identity") {
 		FP6_rand(&group, &a);
 		FP6_zero(&c);
-		FP6_sub(&d, &a, &c);
+		FP6_sub(&group, &d, &a, &c);
 		TEST_ASSERT(FP6_cmp(&d, &a) == 0, end);
 	}
 	TEST_END;
 
 	TEST_BEGIN("subtraction has inverse") {
 		FP6_rand(&group, &a);
-		FP6_sub(&c, &a, &a);
+		FP6_sub(&group, &c, &a, &a);
 		TEST_ASSERT(FP6_is_zero(&c), end);
 	}
 	TEST_END;
@@ -346,8 +346,8 @@ static int multiplication6(void) {
 	TEST_BEGIN("multiplication is commutative") {
 		FP6_rand(&group, &a);
 		FP6_rand(&group, &b);
-		FP6_mul(&d, &a, &b);
-		FP6_mul(&e, &b, &a);
+		FP6_mul(&group, &d, &a, &b, group.bn);
+		FP6_mul(&group, &e, &b, &a, group.bn);
 		TEST_ASSERT(FP6_cmp(&d, &e) == 0, end);
 	} TEST_END;
 
@@ -355,10 +355,10 @@ static int multiplication6(void) {
 		FP6_rand(&group, &a);
 		FP6_rand(&group, &b);
 		FP6_rand(&group, &c);
-		FP6_mul(&d, &a, &b);
-		FP6_mul(&d, &d, &c);
-		FP6_mul(&e, &b, &c);
-		FP6_mul(&e, &a, &e);
+		FP6_mul(&group, &d, &a, &b, group.bn);
+		FP6_mul(&group, &d, &d, &c, group.bn);
+		FP6_mul(&group, &e, &b, &c, group.bn);
+		FP6_mul(&group, &e, &a, &e, group.bn);
 		TEST_ASSERT(FP6_cmp(&d, &e) == 0, end);
 	} TEST_END;
 
@@ -366,19 +366,19 @@ static int multiplication6(void) {
 		FP6_rand(&group, &a);
 		FP6_rand(&group, &b);
 		FP6_rand(&group, &c);
-		FP6_add(&d, &a, &b);		
-		FP6_mul(&d, &c, &d);
-		FP6_mul(&e, &c, &a);
-		FP6_mul(&f, &c, &b);
-		FP6_add(&e, &e, &f);
+		FP6_add(&group, &d, &a, &b);		
+		FP6_mul(&group, &d, &c, &d, group.bn);
+		FP6_mul(&group, &e, &c, &a, group.bn);
+		FP6_mul(&group, &f, &c, &b, group.bn);
+		FP6_add(&group, &e, &e, &f);
 		TEST_ASSERT(FP6_cmp(&d, &e) == 0, end);
 	} TEST_END;
 
 	TEST_BEGIN("squaring and multiplication are compatible") {
 		FP6_rand(&group, &a);
 		FP6_rand(&group, &b);
-		FP6_mul(&d, &a, &a);
-		FP6_sqr(&e, &a);
+		FP6_mul(&group, &d, &a, &a, group.bn);
+		FP6_sqr(&group, &e, &a, group.bn);
 		TEST_ASSERT(FP6_cmp(&d, &e) == 0, end);
 	} TEST_END;	
 
@@ -404,8 +404,8 @@ static int inversion6(void) {
 
 	TEST_BEGIN("inversion is correct") {
 		FP6_rand(&group, &a);
-		FP6_inv(&b, &a);
-		FP6_mul(&c, &a, &b);
+		FP6_inv(&group, &b, &a, group.bn);
+		FP6_mul(&group, &c, &a, &b, group.bn);
 		FP6_zero(&b);
 		BN_set_word(&b.f[0].f[0], 1);
 		group.ec->meth->field_encode(group.ec, &b.f[0].f[0], &b.f[0].f[0], group.bn);
@@ -726,48 +726,48 @@ static int bench6(void) {
 	BENCH_BEGIN("FP6_add") {
 		FP6_rand(&group, &a);
 		FP6_rand(&group, &b);
-		BENCH_ADD(FP6_add(&c, &a, &b));
+		BENCH_ADD(FP6_add(&group, &c, &a, &b));
 	}
 	BENCH_END;
 
 	BENCH_BEGIN("FP6_mul_unr") {
 		FP6_rand(&group, &a);
 		FP6_rand(&group, &b);
-		BENCH_ADD(FP6_mul_unr(&c, &a, &b));
+		BENCH_ADD(FP6_mul_unr(&group, &c, &a, &b, group.bn));
 	}
 	BENCH_END;
 
 	BENCH_BEGIN("FP6_rdc") {
 		FP6_rand(&group, &a);
 		FP6_rand(&group, &b);
-		FP6_mul_unr(&c, &a, &b);
-		BENCH_ADD(FP6_rdc(&c, &c));
+		FP6_mul_unr(&group, &c, &a, &b, group.bn);
+		BENCH_ADD(FP6_rdc(&group, &c, &c, group.bn));
 	}
 	BENCH_END;
 
 	BENCH_BEGIN("FP6_mul") {
 		FP6_rand(&group, &a);
 		FP6_rand(&group, &b);
-		BENCH_ADD(FP6_mul(&c, &a, &b));
+		BENCH_ADD(FP6_mul(&group, &c, &a, &b, group.bn));
 	}
 	BENCH_END;
 
 	BENCH_BEGIN("FP6_sqr") {
 		FP6_rand(&group, &a);
-		BENCH_ADD(FP6_sqr(&c, &a));
+		BENCH_ADD(FP6_sqr(&group, &c, &a, group.bn));
 	}
 	BENCH_END;
 
 	BENCH_BEGIN("FP6_sqr2") {
 		FP6_rand(&group, &a);
-		BENCH_ADD(FP6_sqr2(&c, &a));
+		BENCH_ADD(FP6_sqr2(&group, &c, &a, group.bn));
 	}
 	BENCH_END;	
 
 	BENCH_BEGIN("FP6_inv") {
 		FP6_rand(&group, &a);
 		FP6_rand(&group, &b);
-		BENCH_ADD(FP6_inv(&c, &a));
+		BENCH_ADD(FP6_inv(&group, &c, &a, group.bn));
 	}
 	BENCH_END;
 
